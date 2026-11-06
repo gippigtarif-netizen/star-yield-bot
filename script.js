@@ -14,7 +14,7 @@ if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
 document.getElementById('username').innerText = userFirstName;
 document.getElementById('user-id').innerText = userId;
 
-// Загружаем баланс с передачей данных пользователя
+// Загружаем актуальный баланс из базы данных на сервере
 async function fetchBalance() {
     try {
         const response = await fetch(`/api/get_balance?user_id=${userId}&username=${encodeURIComponent(userUsername)}&first_name=${encodeURIComponent(userFirstName)}`);
@@ -29,6 +29,25 @@ async function fetchBalance() {
 
 fetchBalance();
 
+// Надежное переключение вкладок
+function switchTab(tabName) {
+    // Убираем класс active у всех кнопок и вкладок
+    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+
+    // Включаем нужную вкладку и подсветку кнопки
+    if (tabName === 'tasks') {
+        document.querySelectorAll('.tab-btn')[0].classList.add('active');
+        document.getElementById('tab-tasks').classList.add('active');
+    } else if (tabName === 'profile') {
+        document.querySelectorAll('.tab-btn')[1].classList.add('active');
+        document.getElementById('tab-profile').classList.add('active');
+    }
+    
+    tg.HapticFeedback.impactOccurred('light');
+}
+
+// Отправляем награду на сервер при выполнении задания
 async function completeTask(btn, reward) {
     try {
         const response = await fetch('/api/add_reward', {
@@ -54,4 +73,9 @@ async function completeTask(btn, reward) {
         console.error("Ошибка сохранения задания:", e);
         alert("Не удалось сохранить награду, проверь соединение.");
     }
+}
+
+function openPromoModal() {
+    tg.HapticFeedback.notificationOccurred('warning');
+    alert('Раздел покупки продвижения находится в разработке! Скоро здесь можно будет запустить рекламу своего канала.');
 }
