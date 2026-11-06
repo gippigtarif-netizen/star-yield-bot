@@ -3,16 +3,15 @@ tg.expand();
 
 let userId = 12345678;
 let userFirstName = "Гость";
-let userUsername = "нет_ника";
+let userUsername = "";
 
 if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
     userId = tg.initDataUnsafe.user.id;
     userFirstName = tg.initDataUnsafe.user.first_name || "Пользователь";
-    userUsername = tg.initDataUnsafe.user.username ? "@" + tg.initDataUnsafe.user.username : "Без ника";
+    userUsername = tg.initDataUnsafe.user.username || "";
 }
 
 document.getElementById('username').innerText = userFirstName;
-document.getElementById('user-handle').innerText = userUsername;
 
 // Загружаем актуальный баланс из базы данных на сервере
 async function fetchBalance() {
