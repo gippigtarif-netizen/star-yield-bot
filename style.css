@@ -131,6 +131,18 @@ body {
     padding: 12px;
 }
 
+.promo-btn {
+    background: linear-gradient(135deg, #2ea6ff, #1c7cd6);
+    color: #fff;
+    border: none;
+    padding: 12px;
+    border-radius: 8px;
+    font-weight: bold;
+    cursor: pointer;
+    margin-top: 6px;
+    width: 100%;
+}
+
 .profile-box {
     background: var(--tg-theme-secondary-bg-color, #212d3b);
     padding: 16px;
