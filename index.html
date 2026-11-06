@@ -9,10 +9,10 @@
 </head>
 <body>
     <div class="app-container">
-        <!-- Шапка с профилем -->
+        <!-- Шапка с профилем (теперь без имени сверху) -->
         <header class="user-card">
             <div class="user-info">
-                <span id="username">Загрузка...</span>
+                <span>StarYield</span>
                 <span class="user-badge">Free Tier</span>
             </div>
             <div class="balance-card">
@@ -54,13 +54,14 @@
         <section id="tab-profile" class="tab-content">
             <h3>Личный кабинет</h3>
             <div class="profile-box">
+                <p><strong>Имя:</strong> <span id="user-name-profile">---</span></p>
                 <button class="withdraw-btn" onclick="alert('Вывод доступен от 50 звёзд!')">Вывести звёзды</button>
                 <button class="promo-btn" onclick="openPromoModal()">Купить продвижение</button>
             </div>
         </section>
     </div>
 
-    <!-- Версия обновлена до ?v=7 для сброса кэша -->
-    <script src="script.js?v=7"></script>
+    <!-- Версия обновлена до ?v=8 для сброса кэша -->
+    <script src="script.js?v=8"></script>
 </body>
 </html>
