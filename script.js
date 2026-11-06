@@ -11,7 +11,8 @@ if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
     userUsername = tg.initDataUnsafe.user.username || "";
 }
 
-document.getElementById('username').innerText = userFirstName;
+// Выводим имя во вкладке профиль
+document.getElementById('user-name-profile').innerText = userFirstName;
 
 // Загружаем актуальный баланс из базы данных на сервере
 async function fetchBalance() {
