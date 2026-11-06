@@ -2,7 +2,7 @@ import asyncio
 import sqlite3
 import os
 from aiogram import Bot, Dispatcher
-from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from aiogram.filters import CommandStart
 from aiohttp import web
 
@@ -11,7 +11,9 @@ TOKEN = os.getenv("BOT_TOKEN")
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# --- РАБОТА С БАЗОЙ ДАННЫХ ---
+# Имя твоего сервиса на Render для формирования внешнего URL
+RENDER_URL = os.getenv("RENDER_EXTERNAL_URL", "https://star-yield-bot.onrender.com")
+
 def init_db():
     conn = sqlite3.connect("users.db")
     cursor = conn.cursor()
@@ -41,15 +43,7 @@ def add_user(user_id: int, username: str, first_name: str):
 
 WELCOME_TEXT = (
     "⭐️ <b>Добро пожаловать в StarYield!</b> ⭐️\n\n"
-    "Вас приветствует StarYield! В этом боте можно бесплатно получать реальные тг-звёзды за выполнение лёгких заданий. "
-    "Зарабатывай честные награды за подписки и активность в сервисе.\n\n"
-    "📌 <b>Как это работает:</b>\n"
-    "• Выполняй простые задания и подписывайся на каналы.\n"
-    "• Следи за своими накоплениями в профиле.\n"
-    "• Выводи заработанные звёзды и развивайся вместе с проектом.\n\n"
-    "⚠️ <b>Дисклеймер и правила:</b>\n"
-    "• 🔞 В рамках партнерских заданий может рекламироваться контент для взрослых (18+).\n"
-    "• ❌ <b>Нельзя отписываться от каналов в течение 3 дней</b>, иначе баланс будет аннулирован."
+    "Нажимай кнопку ниже, чтобы открыть Mini App, выполнять задания и копить звёзды!"
 )
 
 @dp.message(CommandStart())
@@ -59,12 +53,13 @@ async def start_handler(message: Message):
     first_name = message.from_user.first_name or ""
     add_user(user_id, username, first_name)
     
+    # Кнопка открытия Telegram Mini App
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="🚀 Запустить StarYield", 
-                    url="https://t.me/star_yield_bot" 
+                    text="🚀 Открыть StarYield App", 
+                    web_app=WebAppInfo(url=RENDER_URL)
                 )
             ]
         ]
@@ -75,13 +70,16 @@ async def start_handler(message: Message):
         reply_markup=keyboard
     )
 
-# --- ВЕБ-СЕРВЕРА ДЛЯ RENDER ---
-async def handle(request):
-    return web.Response(text="Bot is running!")
+# --- РАЗДАЧА ВЕБ-ПРИЛОЖЕНИЯ ---
+async def handle_index(request):
+    return web.FileResponse('./index.html')
 
 async def web_server():
     app = web.Application()
-    app.router.add_get("/", handle)
+    # Главная страница + статика (css/js)
+    app.router.add_get("/", handle_index)
+    app.router.add_static("/", path=".", name="static")
+    
     runner = web.AppRunner(app)
     await runner.setup()
     
@@ -91,9 +89,7 @@ async def web_server():
 
 async def main():
     init_db()
-    print("🤖 Бот StarYield успешно запущен и база данных подключена!")
-    
-    # Запускаем веб-сервер и бота одновременно
+    print("🤖 Бот и Mini App StarYield успешно запущены!")
     await asyncio.gather(
         web_server(),
         dp.start_polling(bot)
