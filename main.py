@@ -28,30 +28,37 @@ def init_db():
     conn.commit()
     conn.close()
 
-def add_user(user_id: int, username: str, first_name: str):
-    conn = sqlite3.connect("users.db")
-    cursor = conn.cursor()
-    cursor.execute("SELECT user_id FROM users WHERE user_id = ?", (user_id,))
-    user = cursor.fetchone()
-    if not user:
-        cursor.execute(
-            "INSERT INTO users (user_id, username, first_name, balance) VALUES (?, ?, ?, ?)",
-            (user_id, username, first_name, 0)
-        )
-        conn.commit()
-    conn.close()
-
-def get_user_balance(user_id: int) -> int:
+def get_or_create_user(user_id: int, username: str = "", first_name: str = "") -> int:
     conn = sqlite3.connect("users.db")
     cursor = conn.cursor()
     cursor.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,))
     row = cursor.fetchone()
+    
+    if not row:
+        # Если база очистилась на Render или юзер зашел впервые — создаем заново
+        cursor.execute(
+            "INSERT OR IGNORE INTO users (user_id, username, first_name, balance) VALUES (?, ?, ?, ?)",
+            (user_id, username, first_name, 0)
+        )
+        conn.commit()
+        balance = 0
+    else:
+        balance = row[0]
+        
     conn.close()
-    return row[0] if row else 0
+    return balance
 
-def update_user_balance(user_id: int, amount: int):
+def update_user_balance(user_id: int, amount: int, username: str = "", first_name: str = ""):
     conn = sqlite3.connect("users.db")
     cursor = conn.cursor()
+    # Сначала убеждаемся, что юзер есть в базе
+    cursor.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,))
+    if not cursor.fetchone():
+        cursor.execute(
+            "INSERT INTO users (user_id, username, first_name, balance) VALUES (?, ?, ?, ?)",
+            (user_id, username, first_name, 0)
+        )
+    
     cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (amount, user_id))
     conn.commit()
     conn.close()
@@ -75,7 +82,7 @@ async def start_handler(message: Message):
     user_id = message.from_user.id
     username = message.from_user.username or ""
     first_name = message.from_user.first_name or ""
-    add_user(user_id, username, first_name)
+    get_or_create_user(user_id, username, first_name)
     
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
@@ -95,22 +102,30 @@ async def start_handler(message: Message):
 
 # --- API ДЛЯ МИНИ-ПРИЛОЖЕНИЯ ---
 async def api_get_balance(request):
-    user_id = request.rel_url.query.get("user_id")
-    if not user_id:
-        return web.json_response({"error": "No user_id provided"}, status=400)
-    
-    balance = get_user_balance(int(user_id))
-    return web.json_response({"balance": balance})
+    try:
+        user_id = int(request.rel_url.query.get("user_id", 0))
+        username = request.rel_url.query.get("username", "")
+        first_name = request.rel_url.query.get("first_name", "")
+        
+        if not user_id:
+            return web.json_response({"error": "No user_id provided"}, status=400)
+        
+        balance = get_or_create_user(user_id, username, first_name)
+        return web.json_response({"balance": balance})
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=400)
 
 async def api_add_reward(request):
     try:
         data = await request.json()
         user_id = int(data.get("user_id"))
         reward = int(data.get("reward", 0))
+        username = data.get("username", "")
+        first_name = data.get("first_name", "")
         
-        update_user_balance(user_id, reward)
-        new_balance = get_user_balance(user_id)
-        return web.json_response({"success": True, "balance": new_balance})
+        update_user_balance(user_id, reward, username, first_name)
+        balance = get_or_create_user(user_id)
+        return web.json_response({"success": True, "balance": balance})
     except Exception as e:
         return web.json_response({"error": str(e)}, status=400)
 
@@ -133,7 +148,7 @@ async def web_server():
 
 async def main():
     init_db()
-    print("🤖 Бот и Mini App StarYield успешно запущены с поддержкой БД!")
+    print("🤖 Бот и Mini App StarYield успешно запущены!")
     await asyncio.gather(
         web_server(),
         dp.start_polling(bot)
