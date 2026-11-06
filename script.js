@@ -1,7 +1,6 @@
 const tg = window.Telegram.WebApp;
-tg.expand(); // Разворачивает окно приложения на весь экран
+tg.expand();
 
-// Загрузка данных юзера из Telegram WebApp
 if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
     const user = tg.initDataUnsafe.user;
     document.getElementById('username').innerText = user.first_name || "Пользователь";
@@ -32,5 +31,10 @@ function completeTask(btn, reward) {
     btn.disabled = true;
     btn.innerText = "Выполнено";
     btn.style.background = "#4ce666";
-    tg.HapticFeedback.notificationOccurred('success'); // Легкая вибрация телефона
+    tg.HapticFeedback.notificationOccurred('success');
+}
+
+function openPromoModal() {
+    tg.HapticFeedback.notificationOccurred('warning');
+    alert('Раздел покупки продвижения находится в разработке! Скоро здесь можно будет запустить рекламу своего канала.');
 }
