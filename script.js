@@ -1,16 +1,31 @@
 const tg = window.Telegram.WebApp;
 tg.expand();
 
+let userId = 12345678; // Дефолтный ID для теста в браузере
+let userFirstName = "Гость";
+
 if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
-    const user = tg.initDataUnsafe.user;
-    document.getElementById('username').innerText = user.first_name || "Пользователь";
-    document.getElementById('user-id').innerText = user.id;
-} else {
-    document.getElementById('username').innerText = "Гость";
-    document.getElementById('user-id').innerText = "12345678";
+    userId = tg.initDataUnsafe.user.id;
+    userFirstName = tg.initDataUnsafe.user.first_name || "Пользователь";
 }
 
-let balance = 0;
+document.getElementById('username').innerText = userFirstName;
+document.getElementById('user-id').innerText = userId;
+
+// Загружаем реальный баланс из базы данных при открытии
+async function fetchBalance() {
+    try {
+        const response = await fetch(`/api/get_balance?user_id=${userId}`);
+        const data = await response.json();
+        if (data.balance !== undefined) {
+            document.getElementById('balance-val').innerText = data.balance;
+        }
+    } catch (e) {
+        console.error("Ошибка загрузки баланса:", e);
+    }
+}
+
+fetchBalance();
 
 function switchTab(tabName) {
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
@@ -25,13 +40,27 @@ function switchTab(tabName) {
     }
 }
 
-function completeTask(btn, reward) {
-    balance += reward;
-    document.getElementById('balance-val').innerText = balance;
-    btn.disabled = true;
-    btn.innerText = "Выполнено";
-    btn.style.background = "#4ce666";
-    tg.HapticFeedback.notificationOccurred('success');
+// Отправляем награду на сервер при выполнении задания
+async function completeTask(btn, reward) {
+    try {
+        const response = await fetch('/api/add_reward', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId, reward: reward })
+        });
+        
+        const data = await response.json();
+        if (data.success) {
+            document.getElementById('balance-val').innerText = data.balance;
+            btn.disabled = true;
+            btn.innerText = "Выполнено";
+            btn.style.background = "#4ce666";
+            tg.HapticFeedback.notificationOccurred('success');
+        }
+    } catch (e) {
+        console.error("Ошибка сохранения задания:", e);
+        alert("Не удалось сохранить награду, проверь соединение.");
+    }
 }
 
 function openPromoModal() {
