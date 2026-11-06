@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>StarYield Mini App</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Шапка с профилем -->
+        <header class="user-card">
+            <div class="user-info">
+                <span id="username">Загрузка...</span>
+                <span class="user-badge">Free Tier</span>
+            </div>
+            <div class="balance-card">
+                <span class="balance-title">Твой баланс</span>
+                <div class="balance-amount">
+                    <span id="balance-val">0</span> ⭐️
+                </div>
+            </div>
+        </header>
+
+        <!-- Навигационные вкладки -->
+        <nav class="tabs">
+            <button class="tab-btn active" onclick="switchTab('tasks')">Задания</button>
+            <button class="tab-btn" onclick="switchTab('profile')">Профиль</button>
+        </nav>
+
+        <!-- Вкладка 1: Задания -->
+        <section id="tab-tasks" class="tab-content active">
+            <h3>Доступные задания</h3>
+            <div class="task-list">
+                <div class="task-card">
+                    <div class="task-info">
+                        <strong>Подписка на канал</strong>
+                        <p>Подпишись и не отписывайся 3 дня</p>
+                    </div>
+                    <button class="claim-btn" onclick="completeTask(this, 15)">+15 ⭐️</button>
+                </div>
+                <div class="task-card">
+                    <div class="task-info">
+                        <strong>Партнерский просмотр</strong>
+                        <p>Посмотри спонсорский пост</p>
+                    </div>
+                    <button class="claim-btn" onclick="completeTask(this, 5)">+5 ⭐️</button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Вкладка 2: Профиль -->
+        <section id="tab-profile" class="tab-content">
+            <h3>Личный кабинет</h3>
+            <div class="profile-box">
+                <p><strong>ID:</strong> <span id="user-id">---</span></p>
+                <p><strong>Статус:</strong> Активен</p>
+                <button class="withdraw-btn" onclick="alert('Вывод доступен от 50 звёзд!')">Вывести звёзды</button>
+            </div>
+        </section>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
