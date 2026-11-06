@@ -75,7 +75,7 @@ async def start_handler(message: Message):
         reply_markup=keyboard
     )
 
-# --- ЗАГЛУШКА ВЕБ-СЕРВЕРА ДЛЯ RENDER ---
+# --- ВЕБ-СЕРВЕРА ДЛЯ RENDER ---
 async def handle(request):
     return web.Response(text="Bot is running!")
 
@@ -85,7 +85,6 @@ async def web_server():
     runner = web.AppRunner(app)
     await runner.setup()
     
-    # Render передает порт через переменную окружения PORT, по умолчанию берем 10000
     port = int(os.getenv("PORT", 10000))
     site = web.TCPSite(runner, "0.0.0.0", port)
     await site.start()
@@ -94,9 +93,11 @@ async def main():
     init_db()
     print("🤖 Бот StarYield успешно запущен и база данных подключена!")
     
-    # Запускаем и веб-сервер для Render, и самого бота
-    await web_server()
-    await dp.start_polling(bot)
+    # Запускаем веб-сервер и бота одновременно
+    await asyncio.gather(
+        web_server(),
+        dp.start_polling(bot)
+    )
 
 if __name__ == "__main__":
     asyncio.run(main())
