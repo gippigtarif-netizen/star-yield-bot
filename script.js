@@ -3,16 +3,16 @@ tg.expand();
 
 let userId = 12345678;
 let userFirstName = "Гость";
-let userUsername = "";
+let userUsername = "нет_ника";
 
 if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
     userId = tg.initDataUnsafe.user.id;
     userFirstName = tg.initDataUnsafe.user.first_name || "Пользователь";
-    userUsername = tg.initDataUnsafe.user.username || "";
+    userUsername = tg.initDataUnsafe.user.username ? "@" + tg.initDataUnsafe.user.username : "Без ника";
 }
 
 document.getElementById('username').innerText = userFirstName;
-document.getElementById('user-id').innerText = userId;
+document.getElementById('user-handle').innerText = userUsername;
 
 // Загружаем актуальный баланс из базы данных на сервере
 async function fetchBalance() {
@@ -31,11 +31,9 @@ fetchBalance();
 
 // Надежное переключение вкладок
 function switchTab(tabName) {
-    // Убираем класс active у всех кнопок и вкладок
     document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
     document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
 
-    // Включаем нужную вкладку и подсветку кнопки
     if (tabName === 'tasks') {
         document.querySelectorAll('.tab-btn')[0].classList.add('active');
         document.getElementById('tab-tasks').classList.add('active');
