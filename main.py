@@ -35,7 +35,6 @@ def get_or_create_user(user_id: int, username: str = "", first_name: str = "") -
     row = cursor.fetchone()
     
     if not row:
-        # Если база очистилась на Render или юзер зашел впервые — создаем заново
         cursor.execute(
             "INSERT OR IGNORE INTO users (user_id, username, first_name, balance) VALUES (?, ?, ?, ?)",
             (user_id, username, first_name, 0)
@@ -51,7 +50,6 @@ def get_or_create_user(user_id: int, username: str = "", first_name: str = "") -
 def update_user_balance(user_id: int, amount: int, username: str = "", first_name: str = ""):
     conn = sqlite3.connect("users.db")
     cursor = conn.cursor()
-    # Сначала убеждаемся, что юзер есть в базе
     cursor.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,))
     if not cursor.fetchone():
         cursor.execute(
