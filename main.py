@@ -1,15 +1,17 @@
 import asyncio
 import sqlite3
+import os
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.filters import CommandStart
-import os
+from aiohttp import web
 
 TOKEN = os.getenv("BOT_TOKEN")
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
+# --- РАБОТА С БАЗОЙ ДАННЫХ ---
 def init_db():
     conn = sqlite3.connect("users.db")
     cursor = conn.cursor()
@@ -73,9 +75,27 @@ async def start_handler(message: Message):
         reply_markup=keyboard
     )
 
+# --- ЗАГЛУШКА ВЕБ-СЕРВЕРА ДЛЯ RENDER ---
+async def handle(request):
+    return web.Response(text="Bot is running!")
+
+async def web_server():
+    app = web.Application()
+    app.router.add_get("/", handle)
+    runner = web.AppRunner(app)
+    await runner.setup()
+    
+    # Render передает порт через переменную окружения PORT, по умолчанию берем 10000
+    port = int(os.getenv("PORT", 10000))
+    site = web.TCPSite(runner, "0.0.0.0", port)
+    await site.start()
+
 async def main():
     init_db()
     print("🤖 Бот StarYield успешно запущен и база данных подключена!")
+    
+    # Запускаем и веб-сервер для Render, и самого бота
+    await web_server()
     await dp.start_polling(bot)
 
 if __name__ == "__main__":
