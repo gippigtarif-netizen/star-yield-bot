@@ -1,17 +1,16 @@
 import asyncio
 import sqlite3
 import os
+from aiohttp import web
 from aiogram import Bot, Dispatcher
 from aiogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, WebAppInfo
 from aiogram.filters import CommandStart
-from aiohttp import web
 
 TOKEN = os.getenv("BOT_TOKEN")
 
 bot = Bot(token=TOKEN)
 dp = Dispatcher()
 
-# URL твоего сервиса на Render
 RENDER_URL = os.getenv("RENDER_EXTERNAL_URL", "https://star-yield-bot.onrender.com")
 
 # --- РАБОТА С БАЗОЙ ДАННЫХ ---
@@ -40,6 +39,21 @@ def add_user(user_id: int, username: str, first_name: str):
             (user_id, username, first_name, 0)
         )
         conn.commit()
+    conn.close()
+
+def get_user_balance(user_id: int) -> int:
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+    cursor.execute("SELECT balance FROM users WHERE user_id = ?", (user_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return row[0] if row else 0
+
+def update_user_balance(user_id: int, amount: int):
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+    cursor.execute("UPDATE users SET balance = balance + ? WHERE user_id = ?", (amount, user_id))
+    conn.commit()
     conn.close()
 
 WELCOME_TEXT = (
@@ -79,13 +93,35 @@ async def start_handler(message: Message):
         reply_markup=keyboard
     )
 
-# --- РАЗДАЧА ВЕБ-ПРИЛОЖЕНИЯ ---
+# --- API ДЛЯ МИНИ-ПРИЛОЖЕНИЯ ---
+async def api_get_balance(request):
+    user_id = request.rel_url.query.get("user_id")
+    if not user_id:
+        return web.json_response({"error": "No user_id provided"}, status=400)
+    
+    balance = get_user_balance(int(user_id))
+    return web.json_response({"balance": balance})
+
+async def api_add_reward(request):
+    try:
+        data = await request.json()
+        user_id = int(data.get("user_id"))
+        reward = int(data.get("reward", 0))
+        
+        update_user_balance(user_id, reward)
+        new_balance = get_user_balance(user_id)
+        return web.json_response({"success": True, "balance": new_balance})
+    except Exception as e:
+        return web.json_response({"error": str(e)}, status=400)
+
 async def handle_index(request):
     return web.FileResponse('./index.html')
 
 async def web_server():
     app = web.Application()
     app.router.add_get("/", handle_index)
+    app.router.add_get("/api/get_balance", api_get_balance)
+    app.router.add_post("/api/add_reward", api_add_reward)
     app.router.add_static("/", path=".", name="static")
     
     runner = web.AppRunner(app)
@@ -97,7 +133,7 @@ async def web_server():
 
 async def main():
     init_db()
-    print("🤖 Бот и Mini App StarYield успешно запущены!")
+    print("🤖 Бот и Mini App StarYield успешно запущены с поддержкой БД!")
     await asyncio.gather(
         web_server(),
         dp.start_polling(bot)
