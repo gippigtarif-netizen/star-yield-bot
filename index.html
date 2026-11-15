@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>StarYield</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="style.css?v=10">
+    <link rel="stylesheet" href="style.css?v=12">
 </head>
 <body>
     <div class="bg-glow"></div>
@@ -30,6 +30,7 @@
         <!-- Переключатель вкладок -->
         <nav class="tabs">
             <button id="tab-tasks" class="tab-btn active" onclick="switchTab('tasks')">Задания</button>
+            <button id="tab-games" class="tab-btn" onclick="switchTab('games')">Мини-игры</button>
             <button id="tab-profile" class="tab-btn" onclick="switchTab('profile')">Профиль</button>
         </nav>
 
@@ -66,12 +67,51 @@
                 </div>
             </div>
 
-            <!-- Блок внизу, чтобы заполнить пустое пространство -->
             <div class="promo-banner">
                 <div class="promo-text">
                     <h4>Больше заданий скоро!</h4>
                     <p>Новые партнерские каналы добавляются ежедневно.</p>
                 </div>
+            </div>
+        </main>
+
+        <!-- Вкладка: Мини-игры (Колесо фортуны) -->
+        <main id="view-games" class="view">
+            <h2 class="section-title">Мини-игры</h2>
+
+            <div class="game-card">
+                <div class="game-header">
+                    <span class="game-badge">X2 МНОЖИТЕЛЬ</span>
+                    <h3>Колесо Фортуны</h3>
+                    <p>Выбери ставку, крути колесо и испытаaj удачу!</p>
+                </div>
+
+                <!-- Выбор ставки -->
+                <div class="bet-selector">
+                    <button class="bet-btn active" onclick="selectBet(5, this)">5 ⭐</button>
+                    <button class="bet-btn" onclick="selectBet(15, this)">15 ⭐</button>
+                    <button class="bet-btn" onclick="selectBet(30, this)">30 ⭐</button>
+                    <button class="bet-btn" onclick="selectBet(50, this)">50 ⭐</button>
+                </div>
+
+                <!-- Визуальное колесо фортуны -->
+                <div class="wheel-container">
+                    <div class="wheel-pointer">▼</div>
+                    <div id="fortune-wheel" class="wheel">
+                        <div class="wheel-sector win"><span>x2</span></div>
+                        <div class="wheel-sector lose"><span>0</span></div>
+                        <div class="wheel-sector lose"><span>0</span></div>
+                        <div class="wheel-sector lose"><span>0</span></div>
+                        <div class="wheel-sector lose"><span>0</span></div>
+                        <div class="wheel-sector lose"><span>0</span></div>
+                        <div class="wheel-sector lose"><span>0</span></div>
+                        <div class="wheel-sector lose"><span>0</span></div>
+                        <div class="wheel-sector lose"><span>0</span></div>
+                    </div>
+                </div>
+
+                <button id="spin-btn" class="spin-action-btn" onclick="spinWheel()">Крутить колесо</button>
+                <div id="game-status" class="game-status">Сделай ставку и нажми кнопку</div>
             </div>
         </main>
 
@@ -97,6 +137,6 @@
         </main>
     </div>
 
-    <script src="script.js?v=10"></script>
+    <script src="script.js?v=12"></script>
 </body>
 </html>
