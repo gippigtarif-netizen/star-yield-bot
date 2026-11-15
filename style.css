@@ -16,7 +16,6 @@ body {
     position: relative;
 }
 
-/* Фоновое мягкое свечение */
 .bg-glow {
     position: fixed;
     top: -80px;
@@ -37,7 +36,6 @@ body {
     z-index: 1;
 }
 
-/* Шапка и карточка баланса */
 .header {
     background: rgba(22, 27, 38, 0.85);
     backdrop-filter: blur(12px);
@@ -58,7 +56,6 @@ body {
 .app-title {
     font-size: 16px;
     font-weight: 700;
-    letter-spacing: 0.3px;
 }
 
 .badge {
@@ -110,23 +107,22 @@ body {
     50% { transform: translateY(-4px) rotate(6deg); }
 }
 
-/* Вкладки */
 .tabs {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: 1fr 1fr 1fr;
     background: rgba(22, 27, 38, 0.9);
     border: 1px solid rgba(255, 255, 255, 0.06);
     border-radius: 14px;
     padding: 4px;
     margin-bottom: 20px;
-    gap: 6px;
+    gap: 4px;
 }
 
 .tab-btn {
     background: transparent;
     border: none;
     color: #9ca3af;
-    font-size: 14px;
+    font-size: 13px;
     font-weight: 600;
     padding: 11px 0;
     border-radius: 10px;
@@ -134,14 +130,12 @@ body {
     transition: all 0.25s ease;
 }
 
-/* Зелёный цвет при активации вкладки */
 .tab-btn.active {
     background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
     color: #ffffff;
     box-shadow: 0 4px 14px rgba(34, 197, 94, 0.35);
 }
 
-/* Контент вкладок */
 .view {
     display: none;
     animation: fadeIn 0.25s ease;
@@ -163,7 +157,7 @@ body {
     color: #f3f4f6;
 }
 
-/* Карточки заданий */
+/* Стили для заданий */
 .tasks-list {
     display: flex;
     flex-direction: column;
@@ -178,11 +172,6 @@ body {
     display: flex;
     align-items: center;
     gap: 12px;
-    transition: transform 0.15s ease;
-}
-
-.task-card:active {
-    transform: scale(0.98);
 }
 
 .task-icon {
@@ -221,21 +210,9 @@ body {
     font-size: 13px;
     font-weight: 800;
     cursor: pointer;
-    flex-shrink: 0;
-    transition: transform 0.15s ease, opacity 0.2s ease;
     box-shadow: 0 4px 12px rgba(245, 158, 11, 0.25);
 }
 
-.reward-btn:active {
-    transform: scale(0.93);
-}
-
-.reward-btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
-}
-
-/* Нижний информационный блок */
 .promo-banner {
     margin-top: 18px;
     background: linear-gradient(135deg, rgba(34, 197, 94, 0.08) 0%, rgba(16, 185, 129, 0.03) 100%);
@@ -256,7 +233,161 @@ body {
     color: #9ca3af;
 }
 
-/* Вкладка Профиль */
+/* Карточка игры: Колесо Фортуны */
+.game-card {
+    background: rgba(24, 30, 44, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 18px;
+    padding: 18px;
+    text-align: center;
+}
+
+.game-header {
+    margin-bottom: 14px;
+}
+
+.game-badge {
+    background: rgba(34, 197, 94, 0.15);
+    color: #4ade80;
+    font-size: 10px;
+    font-weight: 800;
+    padding: 4px 10px;
+    border-radius: 20px;
+    text-transform: uppercase;
+    display: inline-block;
+    margin-bottom: 6px;
+}
+
+.game-header h3 {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+
+.game-header p {
+    font-size: 12px;
+    color: #9ca3af;
+}
+
+.bet-selector {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    margin-bottom: 16px;
+}
+
+.bet-btn {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #9ca3af;
+    font-size: 13px;
+    font-weight: 700;
+    padding: 8px 0;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.bet-btn.active {
+    background: rgba(34, 197, 94, 0.2);
+    border-color: #22c55e;
+    color: #4ade80;
+}
+
+/* Колесо */
+.wheel-container {
+    position: relative;
+    width: 180px;
+    height: 180px;
+    margin: 0 auto 16px auto;
+}
+
+.wheel-pointer {
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 24px;
+    color: #f59e0b;
+    z-index: 10;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+}
+
+.wheel {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 4px solid #374151;
+    position: relative;
+    overflow: hidden;
+    transition: transform 4s cubic-bezier(0.15, 0.9, 0.2, 1);
+    background: #111827;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.wheel-sector {
+    position: absolute;
+    width: 50%;
+    height: 50%;
+    transform-origin: 100% 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 800;
+}
+
+/* Делаем простенькие сектора для визуализации */
+.wheel-sector:nth-child(1) { transform: rotate(0deg) skewY(-45deg); background: #16a34a; color: #fff; }
+.wheel-sector:nth-child(2) { transform: rotate(40deg) skewY(-45deg); background: #1f2937; color: #9ca3af; }
+.wheel-sector:nth-child(3) { transform: rotate(80deg) skewY(-45deg); background: #111827; color: #9ca3af; }
+.wheel-sector:nth-child(4) { transform: rotate(120deg) skewY(-45deg); background: #1f2937; color: #9ca3af; }
+.wheel-sector:nth-child(5) { transform: rotate(160deg) skewY(-45deg); background: #111827; color: #9ca3af; }
+.wheel-sector:nth-child(6) { transform: rotate(200deg) skewY(-45deg); background: #1f2937; color: #9ca3af; }
+.wheel-sector:nth-child(7) { transform: rotate(240deg) skewY(-45deg); background: #111827; color: #9ca3af; }
+.wheel-sector:nth-child(8) { transform: rotate(280deg) skewY(-45deg); background: #1f2937; color: #9ca3af; }
+.wheel-sector:nth-child(9) { transform: rotate(320deg) skewY(-45deg); background: #1f2937; color: #9ca3af; }
+
+.wheel-sector span {
+    position: absolute;
+    bottom: 15px;
+    right: 15px;
+    transform: skewY(45deg);
+}
+
+.spin-action-btn {
+    width: 100%;
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+    color: #ffffff;
+    border: none;
+    border-radius: 14px;
+    padding: 13px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
+    margin-bottom: 10px;
+    transition: transform 0.15s ease;
+}
+
+.spin-action-btn:active {
+    transform: scale(0.97);
+}
+
+.spin-action-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.game-status {
+    font-size: 12px;
+    color: #9ca3af;
+}
+
+/* Профиль */
 .profile-card {
     background: rgba(24, 30, 44, 0.85);
     border: 1px solid rgba(255, 255, 255, 0.07);
@@ -302,11 +433,6 @@ body {
     font-size: 15px;
     font-weight: 700;
     cursor: pointer;
-    transition: transform 0.15s ease;
-}
-
-.action-btn:active {
-    transform: scale(0.97);
 }
 
 .withdraw-btn {
