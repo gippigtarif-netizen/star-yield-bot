@@ -2,66 +2,101 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>StarYield Mini App</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>StarYield</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css?v=10">
 </head>
 <body>
+    <div class="bg-glow"></div>
+
     <div class="app-container">
-        <!-- Шапка с профилем (теперь без имени сверху) -->
-        <header class="user-card">
-            <div class="user-info">
-                <span>StarYield</span>
-                <span class="user-badge">Free Tier</span>
+        <!-- Шапка и карточка баланса -->
+        <header class="header">
+            <div class="header-top">
+                <span class="app-title">StarYield</span>
+                <span class="badge">Free Tier</span>
             </div>
+
             <div class="balance-card">
-                <span class="balance-title">Твой баланс</span>
-                <div class="balance-amount">
-                    <span id="balance-val">0</span> ⭐️
+                <p class="balance-label">Твой баланс</p>
+                <div class="balance-row">
+                    <span id="balance-amount" class="balance-value">0</span>
+                    <span class="star-icon">⭐</span>
                 </div>
             </div>
         </header>
 
-        <!-- Навигационные вкладки -->
+        <!-- Переключатель вкладок -->
         <nav class="tabs">
-            <button class="tab-btn active" onclick="switchTab('tasks')">Задания</button>
-            <button class="tab-btn" onclick="switchTab('profile')">Профиль</button>
+            <button id="tab-tasks" class="tab-btn active" onclick="switchTab('tasks')">Задания</button>
+            <button id="tab-profile" class="tab-btn" onclick="switchTab('profile')">Профиль</button>
         </nav>
 
-        <!-- Вкладка 1: Задания -->
-        <section id="tab-tasks" class="tab-content active">
-            <h3>Доступные задания</h3>
-            <div class="task-list">
+        <!-- Вкладка: Задания -->
+        <main id="view-tasks" class="view active">
+            <h2 class="section-title">Доступные задания</h2>
+            
+            <div class="tasks-list">
                 <div class="task-card">
+                    <div class="task-icon">📢</div>
                     <div class="task-info">
-                        <strong>Подписка на канал</strong>
+                        <h3>Подписка на канал</h3>
                         <p>Подпишись и не отписывайся 3 дня</p>
                     </div>
-                    <button class="claim-btn" onclick="completeTask(this, 15)">+15 ⭐️</button>
+                    <button class="reward-btn" onclick="completeTask(15, this)">+15 ⭐</button>
                 </div>
+
                 <div class="task-card">
+                    <div class="task-icon">👀</div>
                     <div class="task-info">
-                        <strong>Партнерский просмотр</strong>
+                        <h3>Партнерский просмотр</h3>
                         <p>Посмотри спонсорский пост</p>
                     </div>
-                    <button class="claim-btn" onclick="completeTask(this, 5)">+5 ⭐️</button>
+                    <button class="reward-btn" onclick="completeTask(5, this)">+5 ⭐</button>
+                </div>
+
+                <div class="task-card">
+                    <div class="task-icon">🔥</div>
+                    <div class="task-info">
+                        <h3>Ежедневный чек-ин</h3>
+                        <p>Заходи каждый день за бонусом</p>
+                    </div>
+                    <button class="reward-btn" onclick="completeTask(10, this)">+10 ⭐</button>
                 </div>
             </div>
-        </section>
 
-        <!-- Вкладка 2: Профиль -->
-        <section id="tab-profile" class="tab-content">
-            <h3>Личный кабинет</h3>
-            <div class="profile-box">
-                <p><strong>Имя:</strong> <span id="user-name-profile">---</span></p>
-                <button class="withdraw-btn" onclick="alert('Вывод доступен от 50 звёзд!')">Вывести звёзды</button>
-                <button class="promo-btn" onclick="openPromoModal()">Купить продвижение</button>
+            <!-- Блок внизу, чтобы заполнить пустое пространство -->
+            <div class="promo-banner">
+                <div class="promo-text">
+                    <h4>Больше заданий скоро!</h4>
+                    <p>Новые партнерские каналы добавляются ежедневно.</p>
+                </div>
             </div>
-        </section>
+        </main>
+
+        <!-- Вкладка: Профиль -->
+        <main id="view-profile" class="view">
+            <h2 class="section-title">Личный кабинет</h2>
+
+            <div class="profile-card">
+                <div class="avatar-circle" id="user-avatar">👤</div>
+                <div class="profile-details">
+                    <h3 id="user-name" class="profile-name">Пользователь</h3>
+                </div>
+            </div>
+
+            <div class="profile-actions">
+                <button class="action-btn withdraw-btn" onclick="handleWithdraw()">
+                    <span>💸 Вывести звёзды</span>
+                </button>
+                <button class="action-btn promote-btn" onclick="handlePromote()">
+                    <span>🚀 Продвижение</span>
+                </button>
+            </div>
+        </main>
     </div>
 
-    <!-- Версия обновлена до ?v=8 для сброса кэша -->
-    <script src="script.js?v=8"></script>
+    <script src="script.js?v=10"></script>
 </body>
 </html>
