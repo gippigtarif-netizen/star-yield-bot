@@ -113,26 +113,37 @@ async function spinWheel() {
     spinBtn.disabled = true;
     statusEl.textContent = "Колесо крутится...";
 
-    // Сначала списываем ставку (отправляем отрицательное значение через /api/add_reward)
+    // Списываем ставку
     try {
-        await fetch("/api/add_reward", {
+        const res = await fetch("/api/add_reward", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ user_id: userId, reward: -currentBet, username, first_name: firstName })
         });
+        const d = await res.json();
+        if (d.success) {
+            document.getElementById("balance-amount").textContent = d.balance;
+        }
     } catch (e) {
         console.error(e);
     }
 
-    // Определяем победу по шансу 0.1% (0.001)
+    // Реальный шанс выигрыша 0.1%
     const isWin = Math.random() < 0.001;
 
-    // Рассчитываем вращение (рандомные полные обороты + смещение)
-    const extraSpins = 360 * 5; 
-    // Если выигрыш — останавливаем на первом секторе (0-40 градус), если проигрыш — на остальных секторах
-    const targetDeg = isWin ? 20 : 100 + Math.floor(Math.random() * 200);
-    
-    currentRotation += extraSpins + targetDeg;
+    // В SVG зелёный сектор находится от 0 до 36 градусов (справа от верхней стрелки).
+    // Чтобы он оказался ровно под верхней стрелкой (0 deg), колесо должно повернуться на 342 deg (360 - 18).
+    // Серые секторы занимают всё остальное пространство (от 0 до 315 deg поворота).
+    const desiredFinalAngle = isWin 
+        ? 342 
+        : 20 + Math.floor(Math.random() * 290); // строго в серую зону
+
+    const currentMod = currentRotation % 360;
+    let deltaAngle = desiredFinalAngle - currentMod;
+    if (deltaAngle < 0) deltaAngle += 360;
+
+    // Минимум 5 полных оборотов + точный доворот до нужного сектора
+    currentRotation += (360 * 5) + deltaAngle;
     wheel.style.transform = `rotate(${currentRotation}deg)`;
 
     if (tg.HapticFeedback) {
@@ -140,7 +151,6 @@ async function spinWheel() {
     }
 
     setTimeout(async () => {
-        isSpinning.disabled = false;
         isSpinning = false;
         spinBtn.disabled = false;
 
@@ -149,7 +159,6 @@ async function spinWheel() {
             statusEl.textContent = `🎉 ПОБЕДА! Вы выиграли ${prize} ⭐!`;
             if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("success");
 
-            // Начисляем х2 на баланс
             try {
                 const response = await fetch("/api/add_reward", {
                     method: "POST",
