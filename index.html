@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>StarYield</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="style.css?v=12">
+    <link rel="stylesheet" href="style.css?v=13">
 </head>
 <body>
     <div class="bg-glow"></div>
@@ -83,7 +83,7 @@
                 <div class="game-header">
                     <span class="game-badge">X2 МНОЖИТЕЛЬ</span>
                     <h3>Колесо Фортуны</h3>
-                    <p>Выбери ставку, крути колесо и испытаaj удачу!</p>
+                    <p>Выбери ставку, крути колесо и испытай удачу!</p>
                 </div>
 
                 <!-- Выбор ставки -->
@@ -94,19 +94,33 @@
                     <button class="bet-btn" onclick="selectBet(50, this)">50 ⭐</button>
                 </div>
 
-                <!-- Визуальное колесо фортуны -->
+                <!-- Ровное SVG колесо на 10 секторов -->
                 <div class="wheel-container">
                     <div class="wheel-pointer">▼</div>
                     <div id="fortune-wheel" class="wheel">
-                        <div class="wheel-sector win"><span>x2</span></div>
-                        <div class="wheel-sector lose"><span>0</span></div>
-                        <div class="wheel-sector lose"><span>0</span></div>
-                        <div class="wheel-sector lose"><span>0</span></div>
-                        <div class="wheel-sector lose"><span>0</span></div>
-                        <div class="wheel-sector lose"><span>0</span></div>
-                        <div class="wheel-sector lose"><span>0</span></div>
-                        <div class="wheel-sector lose"><span>0</span></div>
-                        <div class="wheel-sector lose"><span>0</span></div>
+                        <svg viewBox="0 0 200 200" width="100%" height="100%">
+                            <!-- 10 равных секторов по 36 градусов -->
+                            <!-- Сектор 1: Зелёный (0 - 36 deg, наверху справа от 12 часов) -->
+                            <path d="M100,100 L100,2 A98,98 0 0,1 157.6,20.7 Z" fill="#22c55e" stroke="#0b0e14" stroke-width="2.5"/>
+                            <!-- Секторы 2-10: Серые -->
+                            <path d="M100,100 L157.6,20.7 A98,98 0 0,1 193.2,69.7 Z" fill="#27303f" stroke="#0b0e14" stroke-width="2.5"/>
+                            <path d="M100,100 L193.2,69.7 A98,98 0 0,1 193.2,130.3 Z" fill="#1f2735" stroke="#0b0e14" stroke-width="2.5"/>
+                            <path d="M100,100 L193.2,130.3 A98,98 0 0,1 157.6,179.3 Z" fill="#27303f" stroke="#0b0e14" stroke-width="2.5"/>
+                            <path d="M100,100 L157.6,179.3 A98,98 0 0,1 100,198 Z" fill="#1f2735" stroke="#0b0e14" stroke-width="2.5"/>
+                            <path d="M100,100 L100,198 A98,98 0 0,1 42.4,179.3 Z" fill="#27303f" stroke="#0b0e14" stroke-width="2.5"/>
+                            <path d="M100,100 L42.4,179.3 A98,98 0 0,1 6.8,130.3 Z" fill="#1f2735" stroke="#0b0e14" stroke-width="2.5"/>
+                            <path d="M100,100 L6.8,130.3 A98,98 0 0,1 6.8,69.7 Z" fill="#27303f" stroke="#0b0e14" stroke-width="2.5"/>
+                            <path d="M100,100 L6.8,69.7 A98,98 0 0,1 42.4,20.7 Z" fill="#1f2735" stroke="#0b0e14" stroke-width="2.5"/>
+                            <path d="M100,100 L42.4,20.7 A98,98 0 0,1 100,2 Z" fill="#27303f" stroke="#0b0e14" stroke-width="2.5"/>
+
+                            <!-- Подпись x2 в зелёном секторе (центр угла 18 deg) -->
+                            <text x="122" y="34" fill="#ffffff" font-size="13" font-weight="800" text-anchor="middle" dominant-baseline="middle" transform="rotate(18, 122, 34)">x2</text>
+
+                            <!-- Внешний обод и центральный кружок -->
+                            <circle cx="100" cy="100" r="97" fill="none" stroke="#374151" stroke-width="4"/>
+                            <circle cx="100" cy="100" r="18" fill="#111827" stroke="#374151" stroke-width="3"/>
+                            <circle cx="100" cy="100" r="6" fill="#22c55e"/>
+                        </svg>
                     </div>
                 </div>
 
@@ -137,6 +151,6 @@
         </main>
     </div>
 
-    <script src="script.js?v=12"></script>
+    <script src="script.js?v=13"></script>
 </body>
 </html>
