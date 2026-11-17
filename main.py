@@ -8,10 +8,7 @@ import random
 
 app = FastAPI()
 
-# Настройки бота
 BOT_TOKEN = "ТВОЙ_ТОКЕН_БОТА_ИЗ_BOTFATHER"
-ADMIN_USER_ID = 123456789  # Твой Telegram ID (для уведомлений)
-GIFT_ID_15 = "ЗАМЕНИ_НА_ID_ПОДАРКА_ЗА_15_ЗВЕЗД"  # ID официального подарка Telegram
 
 # Подключение базы данных SQLite
 def init_db():
@@ -46,7 +43,6 @@ def get_or_create_user(user_id: int, username: str = "", first_name: str = ""):
         game_bal, bonus_bal = 0, 0
     else:
         game_bal, bonus_bal = row[1], row[2]
-        # Обновляем инфу при входе
         cursor.execute("UPDATE users SET username = ?, first_name = ? WHERE user_id = ?", (username, first_name, user_id))
         conn.commit()
         
@@ -68,7 +64,19 @@ def update_balances(user_id: int, game_diff: int = 0, bonus_diff: int = 0):
     conn.close()
     return {"game_balance": row[0], "bonus_balance": row[1]}
 
-# Функция отправки официального подарка через sendGift API
+# Эндпоинт для получения списка подарков от Telegram
+@app.get("/api/get_gifts")
+async def api_get_gifts():
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/getAvailableGifts"
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            res = await response.json()
+            if res.get("ok"):
+                return {"success": True, "gifts": res.get("result", {}).get("gifts", [])}
+            else:
+                return {"success": False, "error": res.get("description", "Не удалось загрузить подарки")}
+
+# Функция отправки подарка
 async def send_telegram_gift(user_id: int, gift_id: str):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendGift"
     payload = {
@@ -103,8 +111,9 @@ class InvoiceRequest(BaseModel):
 class WithdrawRequest(BaseModel):
     user_id: int
     type: str  # "game" или "bonus"
+    gift_id: str
+    amount: int  # Стоимость выбранного подарка (например, 15, 25, 50)
 
-# Эндпоинты API
 @app.get("/api/get_balance")
 def api_get_balance(user_id: int, username: str = "", first_name: str = ""):
     balances = get_or_create_user(user_id, username, first_name)
@@ -147,13 +156,10 @@ def api_spin_wheel(data: SpinRequest):
     if user_data["game_balance"] < bet:
         return {"success": False, "error": "Недостаточно звёзд на балансе!"}
     
-    # Списываем ставку
     balances = update_balances(data.user_id, game_diff=-bet)
     
-    # Формула шанса (максимум ~0.999%)
     clamped = min(bet, 1000)
     chance = min(0.00999 * (clamped / 1000) ** 0.7, 0.00999)
-    
     is_win = random.random() < chance
     prize = 0
     
@@ -174,21 +180,29 @@ async def api_withdraw(data: WithdrawRequest):
     
     if data.type == "game":
         game_bal = user_data["game_balance"]
-        if game_bal < 15:
-            return {"success": False, "error": "Минимальная сумма для вывода с игрового баланса: 15 ⭐"}
         
-        # Списываем 15 звезд с игрового баланса пользователя
-        new_balances = update_balances(data.user_id, game_diff=-15)
+        # Проверяем, минимальный порог (например, от 15 ⭐) и хватает ли баланса игроку
+        if data.amount < 15:
+            return {"success": False, "error": "Минимальная стоимость подарка для вывода: 15 ⭐"}
+            
+        if game_bal < data.amount:
+            return {"success": False, "error": f"Недостаточно звёзд! У вас {game_bal} ⭐, а нужно {data.amount} ⭐."}
         
-        # Пытаемся автоматически отправить подарок со счета кассы бота
-        success_gift = await send_telegram_gift(data.user_id, GIFT_ID_15)
+        if not data.gift_id:
+            return {"success": False, "error": "Выберите конкретный подарок для вывода!"}
+        
+        # Списываем точную стоимость выбранного подарка с баланса игрока
+        new_balances = update_balances(data.user_id, game_diff=-data.amount)
+        
+        # Отправляем подарок через Telegram API
+        success_gift = await send_telegram_gift(data.user_id, data.gift_id)
         
         if success_gift:
-            return {"success": True, "message": "Подарок на 15 ⭐ успешно отправлен вам в чат!", **new_balances}
+            return {"success": True, "message": f"Подарок стоимостью {data.amount} ⭐ успешно отправлен вам в чат!", **new_balances}
         else:
-            # Если у бота в казне не хватило звезд или ошибка API — возвращаем баланс назад
-            update_balances(data.user_id, game_diff=15)
-            return {"success": False, "error": "Касса бота пуста или произошла ошибка отправки. Попробуйте позже."}
+            # Если произошла ошибка (например, у бота на кассе нет звезд) — возвращаем баланс обратно игроку
+            update_balances(data.user_id, game_diff=data.amount)
+            return {"success": False, "error": "Ошибка отправки подарка. Проверьте баланс кассы бота."}
             
     elif data.type == "bonus":
         if user_data["bonus_balance"] < 500:
@@ -197,7 +211,6 @@ async def api_withdraw(data: WithdrawRequest):
         
     return {"success": False, "error": "Неизвестный тип баланса"}
 
-# Раздача фронтенда (index.html и script.js должны лежать рядом в папке)
 app.mount("/", StaticFiles(directory=".", html=True), name="static")
 
 if __name__ == "__main__":
