@@ -1,41 +1,19 @@
-import asyncio
 import sqlite3
-import os
+import aiohttp
+from fastapi import FastAPI, HTTPException
+from fastapi.responses import HTMLResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 import random
-from aiohttp import web
-from aiogram import Bot, Dispatcher, F
-from aiogram.types import (
-    Message,
-    InlineKeyboardMarkup,
-    InlineKeyboardButton,
-    WebAppInfo,
-    LabeledPrice,
-    PreCheckoutQuery,
-)
-from aiogram.filters import CommandStart
 
-TOKEN = os.getenv("BOT_TOKEN")
-bot = Bot(token=TOKEN)
-dp = Dispatcher()
+app = FastAPI()
 
-RENDER_URL = os.getenv("RENDER_EXTERNAL_URL", "https://star-yield-bot.onrender.com")
+# Настройки бота
+BOT_TOKEN = "ТВОЙ_ТОКЕН_БОТА_ИЗ_BOTFATHER"
+ADMIN_USER_ID = 123456789  # Твой Telegram ID (для уведомлений)
+GIFT_ID_15 = "ЗАМЕНИ_НА_ID_ПОДАРКА_ЗА_15_ЗВЕЗД"  # ID официального подарка Telegram
 
-# --- НАСТРОЙКИ КОЛЕСА X2 И КАССЫ ---
-MIN_BET = 1
-MAX_BET = 1000
-MIN_TREASURY_RESERVE = 100  # Несгораемый запас звёзд в твоей кассе
-
-
-def calculate_win_chance(bet_amount: int) -> float:
-    """Плавный рост шанса от 1 до 1000 звёзд. Потолок строго < 1% (0.999%)."""
-    if bet_amount < MIN_BET:
-        return 0.0
-    clamped_bet = min(bet_amount, MAX_BET)
-    chance = 0.999 * ((clamped_bet / MAX_BET) ** 0.7)
-    return round(min(chance, 0.999), 4)
-
-
-# --- РАБОТА С БАЗОЙ ДАННЫХ ---
+# Подключение базы данных SQLite
 def init_db():
     conn = sqlite3.connect("users.db")
     cursor = conn.cursor()
@@ -44,285 +22,184 @@ def init_db():
             user_id INTEGER PRIMARY KEY,
             username TEXT,
             first_name TEXT,
-            balance INTEGER DEFAULT 0,
             game_balance INTEGER DEFAULT 0,
             bonus_balance INTEGER DEFAULT 0
         )
     """)
-
-    # Мягкая миграция, если база уже существовала со старой колонкой balance
-    cursor.execute("PRAGMA table_info(users)")
-    columns = [col[1] for col in cursor.fetchall()]
-    if "game_balance" not in columns:
-        cursor.execute("ALTER TABLE users ADD COLUMN game_balance INTEGER DEFAULT 0")
-    if "bonus_balance" not in columns:
-        cursor.execute("ALTER TABLE users ADD COLUMN bonus_balance INTEGER DEFAULT 0")
-        # Переносим старые накопленные звёзды на бонусный баланс
-        cursor.execute("UPDATE users SET bonus_balance = COALESCE(balance, 0)")
-
-    # Таблица состояния кассы бота
-    cursor.execute("""
-        CREATE TABLE IF NOT EXISTS treasury (
-            id INTEGER PRIMARY KEY CHECK (id = 1),
-            amount INTEGER DEFAULT 0
-        )
-    """)
-    cursor.execute("INSERT OR IGNORE INTO treasury (id, amount) VALUES (1, 0)")
-
     conn.commit()
     conn.close()
 
+init_db()
 
-def get_or_create_user(user_id: int, username: str = "", first_name: str = "") -> dict:
+def get_or_create_user(user_id: int, username: str = "", first_name: str = ""):
     conn = sqlite3.connect("users.db")
     cursor = conn.cursor()
-    cursor.execute(
-        "SELECT game_balance, bonus_balance FROM users WHERE user_id = ?", (user_id,)
-    )
+    cursor.execute("SELECT user_id, game_balance, bonus_balance FROM users WHERE user_id = ?", (user_id,))
     row = cursor.fetchone()
-
+    
     if not row:
         cursor.execute(
-            "INSERT OR IGNORE INTO users (user_id, username, first_name, game_balance, bonus_balance) VALUES (?, ?, ?, 0, 0)",
-            (user_id, username, first_name),
+            "INSERT INTO users (user_id, username, first_name, game_balance, bonus_balance) VALUES (?, ?, ?, 0, 0)",
+            (user_id, username, first_name)
         )
         conn.commit()
-        balances = {"game_balance": 0, "bonus_balance": 0}
+        game_bal, bonus_bal = 0, 0
     else:
-        balances = {"game_balance": row[0] or 0, "bonus_balance": row[1] or 0}
-
+        game_bal, bonus_bal = row[1], row[2]
+        # Обновляем инфу при входе
+        cursor.execute("UPDATE users SET username = ?, first_name = ? WHERE user_id = ?", (username, first_name, user_id))
+        conn.commit()
+        
     conn.close()
+    return {"game_balance": game_bal, "bonus_balance": bonus_bal}
+
+def update_balances(user_id: int, game_diff: int = 0, bonus_diff: int = 0):
+    conn = sqlite3.connect("users.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE users 
+        SET game_balance = game_balance + ?, bonus_balance = bonus_balance + ? 
+        WHERE user_id = ?
+    """, (game_diff, bonus_diff, user_id))
+    conn.commit()
+    
+    cursor.execute("SELECT game_balance, bonus_balance FROM users WHERE user_id = ?", (user_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return {"game_balance": row[0], "bonus_balance": row[1]}
+
+# Функция отправки официального подарка через sendGift API
+async def send_telegram_gift(user_id: int, gift_id: str):
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendGift"
+    payload = {
+        "user_id": user_id,
+        "gift_id": gift_id
+    }
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, json=payload) as response:
+            res_data = await response.json()
+            if res_data.get("ok"):
+                return True
+            else:
+                print(f"Ошибка API sendGift: {res_data.get('description')}")
+                return False
+
+# Модели запросов
+class ActionRequest(BaseModel):
+    user_id: int
+    reward: int = 0
+    username: str = ""
+    first_name: str = ""
+
+class SpinRequest(BaseModel):
+    user_id: int
+    bet: int
+    username: str = ""
+    first_name: str = ""
+
+class InvoiceRequest(BaseModel):
+    amount: int
+
+class WithdrawRequest(BaseModel):
+    user_id: int
+    type: str  # "game" или "bonus"
+
+# Эндпоинты API
+@app.get("/api/get_balance")
+def api_get_balance(user_id: int, username: str = "", first_name: str = ""):
+    balances = get_or_create_user(user_id, username, first_name)
     return balances
 
+@app.post("/api/add_reward")
+def api_add_reward(data: ActionRequest):
+    balances = update_balances(data.user_id, bonus_diff=data.reward)
+    return {"success": True, **balances}
 
-def update_bonus_balance(user_id: int, amount: int, username: str = "", first_name: str = ""):
-    get_or_create_user(user_id, username, first_name)
-    conn = sqlite3.connect("users.db")
-    cursor = conn.cursor()
-    cursor.execute(
-        "UPDATE users SET bonus_balance = MAX(0, bonus_balance + ?) WHERE user_id = ?",
-        (amount, user_id),
-    )
-    conn.commit()
-    conn.close()
+@app.post("/api/create_invoice")
+async def api_create_invoice(data: InvoiceRequest):
+    if not (1 <= data.amount <= 10000):
+        raise HTTPException(status_code=400, detail="Неверная сумма")
+    
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/createInvoice"
+    payload = {
+        "title": "Пополнение игрового баланса",
+        "description": f"Зачисление {data.amount} ⭐ на игровой баланс StarYield",
+        "payload": f"topup_{data.amount}_{random.randint(1000,9999)}",
+        "currency": "XTR",
+        "prices": [{"label": "Звёзды Telegram", "amount": data.amount}]
+    }
+    
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, json=payload) as response:
+            res = await response.json()
+            if res.get("ok"):
+                return {"invoice_link": res["result"]}
+            else:
+                return JSONResponse(status_code=400, content={"error": res.get("description", "Ошибка инвойса")})
 
+@app.post("/api/spin_wheel")
+def api_spin_wheel(data: SpinRequest):
+    bet = data.bet
+    if not (1 <= bet <= 1000):
+        raise HTTPException(status_code=400, detail="Неверная ставка")
+        
+    user_data = get_or_create_user(data.user_id, data.username, data.first_name)
+    if user_data["game_balance"] < bet:
+        return {"success": False, "error": "Недостаточно звёзд на балансе!"}
+    
+    # Списываем ставку
+    balances = update_balances(data.user_id, game_diff=-bet)
+    
+    # Формула шанса (максимум ~0.999%)
+    clamped = min(bet, 1000)
+    chance = min(0.00999 * (clamped / 1000) ** 0.7, 0.00999)
+    
+    is_win = random.random() < chance
+    prize = 0
+    
+    if is_win:
+        prize = bet * 2
+        balances = update_balances(data.user_id, game_diff=prize)
+        
+    return {
+        "success": True,
+        "won": is_win,
+        "prize": prize,
+        **balances
+    }
 
-def update_game_balance(user_id: int, amount: int, username: str = "", first_name: str = ""):
-    get_or_create_user(user_id, username, first_name)
-    conn = sqlite3.connect("users.db")
-    cursor = conn.cursor()
-    cursor.execute(
-        "UPDATE users SET game_balance = MAX(0, game_balance + ?) WHERE user_id = ?",
-        (amount, user_id),
-    )
-    conn.commit()
-    conn.close()
+@app.post("/api/withdraw")
+async def api_withdraw(data: WithdrawRequest):
+    user_data = get_or_create_user(data.user_id)
+    
+    if data.type == "game":
+        game_bal = user_data["game_balance"]
+        if game_bal < 15:
+            return {"success": False, "error": "Минимальная сумма для вывода с игрового баланса: 15 ⭐"}
+        
+        # Списываем 15 звезд с игрового баланса пользователя
+        new_balances = update_balances(data.user_id, game_diff=-15)
+        
+        # Пытаемся автоматически отправить подарок со счета кассы бота
+        success_gift = await send_telegram_gift(data.user_id, GIFT_ID_15)
+        
+        if success_gift:
+            return {"success": True, "message": "Подарок на 15 ⭐ успешно отправлен вам в чат!", **new_balances}
+        else:
+            # Если у бота в казне не хватило звезд или ошибка API — возвращаем баланс назад
+            update_balances(data.user_id, game_diff=15)
+            return {"success": False, "error": "Касса бота пуста или произошла ошибка отправки. Попробуйте позже."}
+            
+    elif data.type == "bonus":
+        if user_data["bonus_balance"] < 500:
+            return {"success": False, "error": "Минимальный вывод с Бонусного баланса: 500 ⭐."}
+        return {"success": True, "message": "Заявка на вывод бонусного баланса принята!"}
+        
+    return {"success": False, "error": "Неизвестный тип баланса"}
 
-
-# --- ПРИЁМ РЕАЛЬНЫХ TELEGRAM STARS (XTR) ---
-@dp.pre_checkout_query()
-async def process_pre_checkout(pre_checkout_query: PreCheckoutQuery):
-    await pre_checkout_query.answer(ok=True)
-
-
-@dp.message(F.successful_payment)
-async def process_successful_payment(message: Message):
-    payment = message.successful_payment
-    stars_amount = payment.total_amount  # 1 XTR = 1 звезда
-    user_id = message.from_user.id
-    username = message.from_user.username or ""
-    first_name = message.from_user.first_name or ""
-
-    update_game_balance(user_id, stars_amount, username, first_name)
-    await message.answer(
-        f"✅ Оплата прошла успешно! На ваш <b>Игровой баланс</b> зачислено <b>{stars_amount} ⭐</b>.",
-        parse_mode="HTML",
-    )
-
-
-WELCOME_TEXT = (
-    "⭐️ <b>Добро пожаловать в StarYield!</b> ⭐️\n\n"
-    "Вас приветствует StarYield! Выполняй лёгкие задания для накопления бонусных звёзд или испытай удачу в Колесе Фортуны X2.\n\n"
-    "📌 <b>Два независимых баланса:</b>\n"
-    "• 🎰 <b>Игровой баланс</b> — пополняется звёздами Telegram, используется в рулетке X2 и доступен для вывода.\n"
-    "• 🎁 <b>Бонусный баланс</b> — копится за ежедневные задания и подписки, доступен для вывода от 500 ⭐.\n\n"
-    "⚠️ <b>Правила:</b>\n"
-    "• ❌ <b>Нельзя отписываться от каналов в течение 3 дней</b>, иначе бонусный баланс будет аннулирован.\n\n"
-    "Нажимай кнопку ниже, чтобы открыть Mini App:"
-)
-
-
-@dp.message(CommandStart())
-async def start_handler(message: Message):
-    user_id = message.from_user.id
-    username = message.from_user.username or ""
-    first_name = message.from_user.first_name or ""
-    get_or_create_user(user_id, username, first_name)
-
-    keyboard = InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="🚀 Открыть StarYield App", web_app=WebAppInfo(url=RENDER_URL)
-                )
-            ]
-        ]
-    )
-    await message.answer(text=WELCOME_TEXT, parse_mode="HTML", reply_markup=keyboard)
-
-
-# --- API ДЛЯ МИНИ-ПРИЛОЖЕНИЯ ---
-async def api_get_balance(request):
-    try:
-        user_id = int(request.rel_url.query.get("user_id", 0))
-        username = request.rel_url.query.get("username", "")
-        first_name = request.rel_url.query.get("first_name", "")
-
-        if not user_id:
-            return web.json_response({"error": "No user_id provided"}, status=400)
-
-        balances = get_or_create_user(user_id, username, first_name)
-        return web.json_response(balances)
-    except Exception as e:
-        return web.json_response({"error": str(e)}, status=400)
-
-
-async def api_add_reward(request):
-    """Начисляет награду исключительно на БОНУСНЫЙ баланс (задания)."""
-    try:
-        data = await request.json()
-        user_id = int(data.get("user_id"))
-        reward = int(data.get("reward", 0))
-        username = data.get("username", "")
-        first_name = data.get("first_name", "")
-
-        # Защита от накрутки: за одно задание нельзя получить больше 50 звёзд
-        if reward <= 0 or reward > 50:
-            return web.json_response({"error": "Некорректная награда"}, status=400)
-
-        update_bonus_balance(user_id, reward, username, first_name)
-        balances = get_or_create_user(user_id)
-        return web.json_response({"success": True, **balances})
-    except Exception as e:
-        return web.json_response({"error": str(e)}, status=400)
-
-
-async def api_create_invoice(request):
-    """Создаёт ссылку на оплату реальными Telegram Stars (XTR) для пополнения ИГРОВОГО баланса."""
-    try:
-        data = await request.json()
-        amount = int(data.get("amount", 0))
-        if amount < 1 or amount > 10000:
-            return web.json_response({"error": "Введите сумму от 1 до 10000 ⭐"}, status=400)
-
-        invoice_link = await bot.create_invoice_link(
-            title=f"Пополнение на {amount} ⭐",
-            description="Пополнение игрового баланса StarYield для Колеса Фортуны X2",
-            payload=f"topup_{amount}",
-            currency="XTR",
-            prices=[LabeledPrice(label="Telegram Stars", amount=amount)],
-        )
-        return web.json_response({"invoice_link": invoice_link})
-    except Exception as e:
-        return web.json_response({"error": str(e)}, status=400)
-
-
-async def api_spin_wheel(request):
-    """Серверный расчёт вращения Колеса X2 с лимитом ставки 1..1000, шансом < 1% и проверкой кассы."""
-    try:
-        data = await request.json()
-        user_id = int(data.get("user_id"))
-        bet_amount = int(data.get("bet", 0))
-        username = data.get("username", "")
-        first_name = data.get("first_name", "")
-
-        if bet_amount < MIN_BET or bet_amount > MAX_BET:
-            return web.json_response(
-                {"error": f"Ставка должна быть от {MIN_BET} до {MAX_BET} ⭐"}, status=400
-            )
-
-        get_or_create_user(user_id, username, first_name)
-
-        conn = sqlite3.connect("users.db")
-        cursor = conn.cursor()
-
-        cursor.execute("SELECT game_balance, bonus_balance FROM users WHERE user_id = ?", (user_id,))
-        row = cursor.fetchone()
-        game_balance, bonus_balance = row[0], row[1]
-
-        if game_balance < bet_amount:
-            conn.close()
-            return web.json_response(
-                {"error": "Недостаточно звёзд на Игровом балансе! Пополните его."}, status=400
-            )
-
-        cursor.execute("SELECT amount FROM treasury WHERE id = 1")
-        current_treasury = cursor.fetchone()[0]
-
-        # 1. Списываем ставку с игрового баланса и кладём в кассу
-        new_game_balance = game_balance - bet_amount
-        new_treasury = current_treasury + bet_amount
-        potential_prize = bet_amount * 2
-        win_chance = calculate_win_chance(bet_amount)
-
-        # 2. Проверяем кассу и крутим рулетку (шанс строго < 1%)
-        can_pay = (new_treasury - potential_prize) >= MIN_TREASURY_RESERVE
-        is_win = can_pay and (random.uniform(0, 100) <= win_chance)
-
-        prize = 0
-        if is_win:
-            prize = potential_prize
-            new_game_balance += prize
-            new_treasury -= prize
-
-        cursor.execute(
-            "UPDATE users SET game_balance = ? WHERE user_id = ?",
-            (new_game_balance, user_id),
-        )
-        cursor.execute("UPDATE treasury SET amount = ? WHERE id = 1", (new_treasury,))
-        conn.commit()
-        conn.close()
-
-        return web.json_response(
-            {
-                "success": True,
-                "won": is_win,
-                "prize": prize,
-                "chance": win_chance,
-                "game_balance": new_game_balance,
-                "bonus_balance": bonus_balance,
-            }
-        )
-    except Exception as e:
-        return web.json_response({"error": str(e)}, status=400)
-
-
-async def handle_index(request):
-    return web.FileResponse("./index.html")
-
-
-async def web_server():
-    app = web.Application()
-    app.router.add_get("/", handle_index)
-    app.router.add_get("/api/get_balance", api_get_balance)
-    app.router.add_post("/api/add_reward", api_add_reward)
-    app.router.add_post("/api/create_invoice", api_create_invoice)
-    app.router.add_post("/api/spin_wheel", api_spin_wheel)
-    app.router.add_static("/", path=".", name="static")
-
-    runner = web.AppRunner(app)
-    await runner.setup()
-
-    port = int(os.getenv("PORT", 10000))
-    site = web.TCPSite(runner, "0.0.0.0", port)
-    await site.start()
-
-
-async def main():
-    init_db()
-    print("🤖 Бот и Mini App StarYield успешно запущены!")
-    await asyncio.gather(web_server(), dp.start_polling(bot))
-
+# Раздача фронтенда (index.html и script.js должны лежать рядом в папке)
+app.mount("/", StaticFiles(directory=".", html=True), name="static")
 
 if __name__ == "__main__":
-    asyncio.run(main())
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
