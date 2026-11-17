@@ -5,24 +5,108 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>StarYield</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="style.css?v=13">
+    <link rel="stylesheet" href="style.css?v=14">
+    <style>
+        .dual-balances {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .sub-balance-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 14px;
+            padding: 12px;
+            text-align: center;
+        }
+        .sub-balance-label {
+            font-size: 11px;
+            color: #9ca3af;
+            margin: 0 0 4px 0;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        .sub-balance-val {
+            font-size: 20px;
+            font-weight: 800;
+            color: #fff;
+        }
+        .topup-mini-btn {
+            margin-top: 8px;
+            width: 100%;
+            padding: 6px 8px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: #fff;
+            font-size: 12px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .custom-bet-box {
+            margin: 12px 0;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .bet-input-wrapper {
+            display: flex;
+            align-items: center;
+            background: rgba(17, 24, 39, 0.85);
+            border: 1px solid #374151;
+            border-radius: 12px;
+            padding: 8px 12px;
+        }
+        .bet-input-wrapper input {
+            width: 100%;
+            background: transparent;
+            border: none;
+            color: #fff;
+            font-size: 16px;
+            font-weight: 700;
+            outline: none;
+        }
+        .bet-stats-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 12px;
+            color: #9ca3af;
+            padding: 0 4px;
+        }
+        .bet-stats-row span b {
+            color: #22c55e;
+        }
+    </style>
 </head>
 <body>
     <div class="bg-glow"></div>
 
     <div class="app-container">
-        <!-- Шапка и карточка баланса -->
+        <!-- Шапка и два раздельных баланса -->
         <header class="header">
             <div class="header-top">
                 <span class="app-title">StarYield</span>
-                <span class="badge">Free Tier</span>
+                <span class="badge">X2 Wheel</span>
             </div>
 
-            <div class="balance-card">
-                <p class="balance-label">Твой баланс</p>
-                <div class="balance-row">
-                    <span id="balance-amount" class="balance-value">0</span>
-                    <span class="star-icon">⭐</span>
+            <div class="dual-balances">
+                <div class="sub-balance-card">
+                    <p class="sub-balance-label">🎰 Игровой (Рулетка)</p>
+                    <div>
+                        <span id="game-balance-amount" class="sub-balance-val">0</span>
+                        <span class="star-icon">⭐</span>
+                    </div>
+                    <button class="topup-mini-btn" onclick="openTopupPrompt()">+ Пополнить</button>
+                </div>
+
+                <div class="sub-balance-card">
+                    <p class="sub-balance-label">🎁 Бонусный (Задания)</p>
+                    <div>
+                        <span id="bonus-balance-amount" class="sub-balance-val">0</span>
+                        <span class="star-icon">⭐</span>
+                    </div>
+                    <p style="font-size: 10px; color: #6b7280; margin: 9px 0 0 0;">Только вывод от 500 ⭐</p>
                 </div>
             </div>
         </header>
@@ -30,7 +114,7 @@
         <!-- Переключатель вкладок -->
         <nav class="tabs">
             <button id="tab-tasks" class="tab-btn active" onclick="switchTab('tasks')">Задания</button>
-            <button id="tab-games" class="tab-btn" onclick="switchTab('games')">Мини-игры</button>
+            <button id="tab-games" class="tab-btn" onclick="switchTab('games')">Колесо X2</button>
             <button id="tab-profile" class="tab-btn" onclick="switchTab('profile')">Профиль</button>
         </nav>
 
@@ -43,7 +127,7 @@
                     <div class="task-icon">📢</div>
                     <div class="task-info">
                         <h3>Подписка на канал</h3>
-                        <p>Подпишись и не отписывайся 3 дня</p>
+                        <p>Награда на бонусный баланс</p>
                     </div>
                     <button class="reward-btn" onclick="completeTask(15, this)">+15 ⭐</button>
                 </div>
@@ -77,21 +161,32 @@
 
         <!-- Вкладка: Мини-игры (Колесо фортуны) -->
         <main id="view-games" class="view">
-            <h2 class="section-title">Мини-игры</h2>
+            <h2 class="section-title">Колесо Фортуны X2</h2>
 
             <div class="game-card">
                 <div class="game-header">
-                    <span class="game-badge">X2 МНОЖИТЕЛЬ</span>
-                    <h3>Колесо Фортуны</h3>
-                    <p>Выбери ставку, крути колесо и испытай удачу!</p>
+                    <span class="game-badge">МНОЖИТЕЛЬ X2</span>
+                    <h3>Испытай удачу</h3>
+                    <p>Введи ставку от 1 до 1000 ⭐. Чем выше ставка, тем выше шанс забрать X2!</p>
                 </div>
 
-                <!-- Выбор ставки -->
+                <!-- Быстрый выбор + поле ручного ввода -->
                 <div class="bet-selector">
                     <button class="bet-btn active" onclick="selectBet(5, this)">5 ⭐</button>
-                    <button class="bet-btn" onclick="selectBet(15, this)">15 ⭐</button>
-                    <button class="bet-btn" onclick="selectBet(30, this)">30 ⭐</button>
                     <button class="bet-btn" onclick="selectBet(50, this)">50 ⭐</button>
+                    <button class="bet-btn" onclick="selectBet(250, this)">250 ⭐</button>
+                    <button class="bet-btn" onclick="selectBet(1000, this)">1000 ⭐</button>
+                </div>
+
+                <div class="custom-bet-box">
+                    <div class="bet-input-wrapper">
+                        <input type="number" id="custom-bet-input" min="1" max="1000" value="5" placeholder="Своя ставка (1 - 1000)" oninput="onCustomBetInput(this.value)">
+                        <span>⭐</span>
+                    </div>
+                    <div class="bet-stats-row">
+                        <span>Выигрыш: <b id="potential-win-label">10 ⭐</b></span>
+                        <span>Шанс победы: <b id="win-chance-label">0.023%</b></span>
+                    </div>
                 </div>
 
                 <!-- Ровное SVG колесо на 10 секторов -->
@@ -99,10 +194,7 @@
                     <div class="wheel-pointer">▼</div>
                     <div id="fortune-wheel" class="wheel">
                         <svg viewBox="0 0 200 200" width="100%" height="100%">
-                            <!-- 10 равных секторов по 36 градусов -->
-                            <!-- Сектор 1: Зелёный (0 - 36 deg, наверху справа от 12 часов) -->
                             <path d="M100,100 L100,2 A98,98 0 0,1 157.6,20.7 Z" fill="#22c55e" stroke="#0b0e14" stroke-width="2.5"/>
-                            <!-- Секторы 2-10: Серые -->
                             <path d="M100,100 L157.6,20.7 A98,98 0 0,1 193.2,69.7 Z" fill="#27303f" stroke="#0b0e14" stroke-width="2.5"/>
                             <path d="M100,100 L193.2,69.7 A98,98 0 0,1 193.2,130.3 Z" fill="#1f2735" stroke="#0b0e14" stroke-width="2.5"/>
                             <path d="M100,100 L193.2,130.3 A98,98 0 0,1 157.6,179.3 Z" fill="#27303f" stroke="#0b0e14" stroke-width="2.5"/>
@@ -113,10 +205,8 @@
                             <path d="M100,100 L6.8,69.7 A98,98 0 0,1 42.4,20.7 Z" fill="#1f2735" stroke="#0b0e14" stroke-width="2.5"/>
                             <path d="M100,100 L42.4,20.7 A98,98 0 0,1 100,2 Z" fill="#27303f" stroke="#0b0e14" stroke-width="2.5"/>
 
-                            <!-- Подпись x2 в зелёном секторе (центр угла 18 deg) -->
                             <text x="122" y="34" fill="#ffffff" font-size="13" font-weight="800" text-anchor="middle" dominant-baseline="middle" transform="rotate(18, 122, 34)">x2</text>
 
-                            <!-- Внешний обод и центральный кружок -->
                             <circle cx="100" cy="100" r="97" fill="none" stroke="#374151" stroke-width="4"/>
                             <circle cx="100" cy="100" r="18" fill="#111827" stroke="#374151" stroke-width="3"/>
                             <circle cx="100" cy="100" r="6" fill="#22c55e"/>
@@ -125,7 +215,7 @@
                 </div>
 
                 <button id="spin-btn" class="spin-action-btn" onclick="spinWheel()">Крутить колесо</button>
-                <div id="game-status" class="game-status">Сделай ставку и нажми кнопку</div>
+                <div id="game-status" class="game-status">Введи ставку от 1 до 1000 ⭐ и нажми кнопку</div>
             </div>
         </main>
 
@@ -141,16 +231,19 @@
             </div>
 
             <div class="profile-actions">
-                <button class="action-btn withdraw-btn" onclick="handleWithdraw()">
-                    <span>💸 Вывести звёзды</span>
+                <button class="action-btn withdraw-btn" onclick="openTopupPrompt()">
+                    <span>⭐️ Пополнить игровой баланс</span>
                 </button>
-                <button class="action-btn promote-btn" onclick="handlePromote()">
-                    <span>🚀 Продвижение</span>
+                <button class="action-btn withdraw-btn" onclick="handleWithdraw('game')">
+                    <span>🎰 Вывести с Игрового баланса</span>
+                </button>
+                <button class="action-btn promote-btn" onclick="handleWithdraw('bonus')">
+                    <span>🎁 Вывести с Бонусного баланса</span>
                 </button>
             </div>
         </main>
     </div>
 
-    <script src="script.js?v=13"></script>
+    <script src="script.js?v=14"></script>
 </body>
 </html>
