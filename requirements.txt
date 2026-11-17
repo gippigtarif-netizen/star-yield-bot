@@ -1,1 +1,4 @@
-aiogram
+fastapi
+uvicorn
+aiohttp
+pydantic
