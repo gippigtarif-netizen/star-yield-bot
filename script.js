@@ -95,7 +95,7 @@ async function completeTask(reward, btnElement) {
     }
 }
 
-// Формула отображения шанса на клиенте (совпадает с серверной формулой до 0.999%)
+// Формула отображения шанса на клиенте
 function updateBetPreview(amount) {
     const winLabel = document.getElementById("potential-win-label");
     const chanceLabel = document.getElementById("win-chance-label");
@@ -145,7 +145,7 @@ function onCustomBetInput(rawValue) {
 }
 
 async function openTopupPrompt() {
-    const raw = prompt("Сколько звёзд Telegram (⭐) зачислить на Игровой баланс? (от 1 до 10000)", "50");
+    const raw = prompt("Сколько звёзд Telegram (⭐) зачислить на Игровой баланс? (от 1 до 10000)", "1");
     if (!raw) return;
     const amount = parseInt(raw, 10);
     if (isNaN(amount) || amount < 1 || amount > 10000) {
@@ -227,7 +227,6 @@ async function spinWheel() {
         return;
     }
 
-    // Сразу списываем визуально ставку на время прокрута (если победа — прибавится после остановки)
     const displayDuringSpin = spinResult.won
         ? spinResult.game_balance - spinResult.prize
         : spinResult.game_balance;
@@ -269,8 +268,8 @@ function handleWithdraw(type) {
     const bonusBal = parseInt(document.getElementById("bonus-balance-amount").textContent) || 0;
 
     if (type === "game") {
-        if (gameBal < 100) {
-            if (tg.showAlert) tg.showAlert("Минимальный вывод с Игрового баланса: 100 ⭐.");
+        if (gameBal < 1) {
+            if (tg.showAlert) tg.showAlert("На Игровом балансе нет звёзд для вывода.");
         } else {
             if (tg.showAlert) tg.showAlert(`Заявка на вывод ${gameBal} ⭐ с Игрового баланса принята!`);
         }
