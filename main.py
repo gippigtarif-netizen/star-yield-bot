@@ -17,6 +17,27 @@ WEBAPP_URL = "https://star-yield-bot.onrender.com"
 DATABASE_URL = os.getenv("DATABASE_URL")
 ADMIN_ID = 7449913629
 
+GIFT_EMOJI_NAMES = {
+    "🧸": "Мишка",
+    "❤️": "Сердечко",
+    "💖": "Сердечко",
+    "💝": "Подарок с лентой",
+    "🌹": "Роза",
+    "🎂": "Торт",
+    "🍾": "Шампанское",
+    "🏆": "Кубок",
+    "💍": "Кольцо",
+    "💎": "Алмаз",
+    "🚀": "Ракета",
+}
+
+
+def format_gift_name(gift: dict, index: int) -> str:
+    emoji = (gift.get("sticker") or {}).get("emoji") or "🎁"
+    if emoji in GIFT_EMOJI_NAMES:
+        return f"{emoji} {GIFT_EMOJI_NAMES[emoji]}"
+    return f"{emoji} Подарок #{index + 1}"
+
 
 def get_db_connection():
     if DATABASE_URL:
@@ -287,7 +308,12 @@ async def api_get_gifts():
         async with session.get(url) as response:
             res = await response.json()
             if res.get("ok"):
-                return {"success": True, "gifts": res.get("result", {}).get("gifts", [])}
+                gifts = res.get("result", {}).get("gifts", [])
+                enriched_gifts = [
+                    {**gift, "display_name": format_gift_name(gift, idx)}
+                    for idx, gift in enumerate(gifts)
+                ]
+                return {"success": True, "gifts": enriched_gifts}
             return {"success": False, "error": res.get("description", "Не удалось загрузить подарки")}
 
 
