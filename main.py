@@ -150,6 +150,7 @@ class WithdrawRequest(BaseModel):
 class TelegramUpdate(BaseModel):
     update_id: int
     message: Optional[dict] = None
+    pre_checkout_query: Optional[dict] = None
 
 
 @app.get("/api/get_balance")
@@ -264,6 +265,17 @@ async def api_withdraw(data: WithdrawRequest):
 
 @app.post("/webhook")
 async def telegram_webhook(update: TelegramUpdate):
+    # Подтверждаем предчек-запрос оплаты звёздами
+    if update.pre_checkout_query:
+        query_id = update.pre_checkout_query.get("id")
+        if query_id:
+            url = f"https://api.telegram.org/bot{BOT_TOKEN}/answerPreCheckoutQuery"
+            payload = {"pre_checkout_query_id": query_id, "ok": True}
+            async with aiohttp.ClientSession() as session:
+                async with session.post(url, json=payload) as resp:
+                    pass
+        return {"ok": True}
+
     if not update.message:
         return {"ok": True}
 
@@ -274,6 +286,24 @@ async def telegram_webhook(update: TelegramUpdate):
     user_id = user.get("id")
     username = user.get("username", "")
     first_name = user.get("first_name", "")
+
+    # Начисляем звёзды после успешной оплаты
+    successful_payment = message.get("successful_payment")
+    if successful_payment and user_id:
+        amount = int(successful_payment.get("total_amount", 0))
+        if amount > 0:
+            get_or_create_user(user_id, username, first_name)
+            update_balances(user_id, game_diff=amount)
+            if chat_id:
+                url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+                payload = {
+                    "chat_id": chat_id,
+                    "text": f"✅ Оплата прошла! На игровой баланс зачислено {amount} ⭐.",
+                }
+                async with aiohttp.ClientSession() as session:
+                    async with session.post(url, json=payload) as resp:
+                        pass
+        return {"ok": True}
 
     if text == "/start" and user_id and chat_id:
         get_or_create_user(user_id, username, first_name)
