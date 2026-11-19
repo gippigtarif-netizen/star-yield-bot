@@ -359,10 +359,12 @@ async function openGiftWithdrawModal(gameBal) {
         }
 
         container.innerHTML = "";
-        available.forEach(gift => {
+        available.forEach((gift, idx) => {
             const price = gift.star_count || 0;
             const canAfford = gameBal >= price;
             const giftId = gift.id;
+            const fallbackEmoji = gift?.sticker?.emoji || "🎁";
+            const label = gift.display_name || `${fallbackEmoji} Подарок №${idx + 1}`;
 
             const item = document.createElement("button");
             item.disabled = !canAfford;
@@ -375,7 +377,7 @@ async function openGiftWithdrawModal(gameBal) {
                 cursor: ${canAfford ? "pointer" : "not-allowed"}; font-size: 14px;
             `;
             item.innerHTML = `
-                <span>🎁 Подарок #${giftId}</span>
+                <span>${label}</span>
                 <strong>${price} ⭐</strong>
             `;
             if (canAfford) {
