@@ -10,6 +10,7 @@ const firstName = user.first_name || "Игрок";
 let currentBet = 5;
 let currentRotation = 0;
 let isSpinning = false;
+let isWithdrawingGift = false;
 
 document.addEventListener("DOMContentLoaded", () => {
     const nameEl = document.getElementById("user-name");
@@ -95,7 +96,6 @@ async function completeTask(reward, btnElement) {
     }
 }
 
-// Формула отображения шанса на клиенте
 function updateBetPreview(amount) {
     const winLabel = document.getElementById("potential-win-label");
     const chanceLabel = document.getElementById("win-chance-label");
@@ -145,7 +145,7 @@ function onCustomBetInput(rawValue) {
 }
 
 async function openTopupPrompt() {
-    const raw = prompt("Сколько звёзд Telegram (⭐) зачислить на Игровой баланс? (от 1 до 10000)", "1");
+    const raw = prompt("Сколько звёзд Telegram (⭐) зачислить на Игровой баланс? (от 1 до 10000)", "15");
     if (!raw) return;
     const amount = parseInt(raw, 10);
     if (isNaN(amount) || amount < 1 || amount > 10000) {
@@ -164,7 +164,7 @@ async function openTopupPrompt() {
             tg.openInvoice(data.invoice_link, (status) => {
                 if (status === "paid") {
                     if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("success");
-                    loadBalance();
+                    setTimeout(loadBalance, 800);
                 }
             });
         } else {
@@ -263,21 +263,150 @@ async function spinWheel() {
     }, 4000);
 }
 
+function closeGiftModal() {
+    const modal = document.getElementById("gift-withdraw-modal");
+    if (modal) modal.remove();
+}
+
+async function submitGiftWithdraw(giftId, amount) {
+    if (isWithdrawingGift) return;
+    isWithdrawingGift = true;
+
+    try {
+        const res = await fetch("/api/withdraw", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                user_id: userId,
+                type: "game",
+                gift_id: String(giftId),
+                amount: Number(amount)
+            })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+            renderBalances(data);
+            closeGiftModal();
+            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("success");
+            if (tg.showAlert) tg.showAlert(data.message || `Подарок за ${amount} ⭐ отправлен!`);
+            else alert(data.message || `Подарок за ${amount} ⭐ отправлен!`);
+        } else {
+            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("error");
+            if (tg.showAlert) tg.showAlert(data.error || "Ошибка вывода подарка");
+            else alert(data.error || "Ошибка вывода подарка");
+        }
+    } catch (e) {
+        console.error("Ошибка вывода:", e);
+        if (tg.showAlert) tg.showAlert("Ошибка соединения с сервером");
+    } finally {
+        isWithdrawingGift = false;
+    }
+}
+
+async function openGiftWithdrawModal(gameBal) {
+    closeGiftModal();
+
+    const modal = document.createElement("div");
+    modal.id = "gift-withdraw-modal";
+    modal.style.cssText = `
+        position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+        display: flex; align-items: center; justify-content: center;
+        z-index: 9999; padding: 16px;
+    `;
+
+    const box = document.createElement("div");
+    box.style.cssText = `
+        width: 100%; max-width: 380px; max-height: 80vh; overflow-y: auto;
+        background: #181c24; color: #fff; border-radius: 16px; padding: 16px;
+        border: 1px solid rgba(255,255,255,0.12);
+    `;
+
+    box.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <div style="font-weight:700; font-size:16px;">🎁 Вывод подарком (${gameBal} ⭐)</div>
+            <button id="close-gift-modal-btn" style="background:#2a303c; color:#fff; border:none; border-radius:8px; padding:4px 10px; cursor:pointer;">✕</button>
+        </div>
+        <div id="gifts-list-container" style="color:#aaa; font-size:14px;">Загружаем подарки Telegram...</div>
+    `;
+
+    modal.appendChild(box);
+    document.body.appendChild(modal);
+
+    document.getElementById("close-gift-modal-btn").onclick = closeGiftModal;
+    modal.addEventListener("click", (e) => {
+        if (e.target === modal) closeGiftModal();
+    });
+
+    const container = document.getElementById("gifts-list-container");
+
+    try {
+        const res = await fetch("/api/get_gifts");
+        const data = await res.json();
+
+        if (!data.success || !Array.isArray(data.gifts)) {
+            container.innerHTML = `<div style="color:#ff6b6b;">${data.error || "Не удалось получить список подарков"}</div>`;
+            return;
+        }
+
+        const available = data.gifts
+            .filter(g => (g.star_count || 0) >= 15)
+            .sort((a, b) => (a.star_count || 0) - (b.star_count || 0));
+
+        if (!available.length) {
+            container.innerHTML = `<div>Сейчас нет подарков от 15 ⭐.</div>`;
+            return;
+        }
+
+        container.innerHTML = "";
+        available.forEach(gift => {
+            const price = gift.star_count || 0;
+            const canAfford = gameBal >= price;
+            const giftId = gift.id;
+
+            const item = document.createElement("button");
+            item.disabled = !canAfford;
+            item.style.cssText = `
+                width: 100%; display: flex; justify-content: space-between; align-items: center;
+                padding: 10px 12px; margin-bottom: 8px; border-radius: 12px;
+                border: 1px solid ${canAfford ? "rgba(76,175,80,0.5)" : "rgba(255,255,255,0.08)"};
+                background: ${canAfford ? "#222b38" : "#14171d"};
+                color: ${canAfford ? "#fff" : "#777"};
+                cursor: ${canAfford ? "pointer" : "not-allowed"}; font-size: 14px;
+            `;
+            item.innerHTML = `
+                <span>🎁 Подарок #${giftId}</span>
+                <strong>${price} ⭐</strong>
+            `;
+            if (canAfford) {
+                item.onclick = () => submitGiftWithdraw(giftId, price);
+            }
+            container.appendChild(item);
+        });
+    } catch (e) {
+        console.error("Ошибка загрузки подарков:", e);
+        container.innerHTML = `<div style="color:#ff6b6b;">Ошибка сети при загрузке подарков</div>`;
+    }
+}
+
 function handleWithdraw(type) {
     const gameBal = parseInt(document.getElementById("game-balance-amount").textContent) || 0;
     const bonusBal = parseInt(document.getElementById("bonus-balance-amount").textContent) || 0;
 
     if (type === "game") {
-        if (gameBal < 1) {
-            if (tg.showAlert) tg.showAlert("На Игровом балансе нет звёзд для вывода.");
-        } else {
-            if (tg.showAlert) tg.showAlert(`Заявка на вывод ${gameBal} ⭐ с Игрового баланса принята!`);
+        if (gameBal < 15) {
+            if (tg.showAlert) tg.showAlert(`Минимальная стоимость подарка для вывода: 15 ⭐. У вас сейчас ${gameBal} ⭐.`);
+            else alert(`Минимальная стоимость подарка для вывода: 15 ⭐.`);
+            return;
         }
+        openGiftWithdrawModal(gameBal);
     } else {
         if (bonusBal < 500) {
             if (tg.showAlert) tg.showAlert("Минимальный вывод с Бонусного баланса: 500 ⭐.");
+            else alert("Минимальный вывод с Бонусного баланса: 500 ⭐.");
         } else {
             if (tg.showAlert) tg.showAlert(`Заявка на вывод ${bonusBal} ⭐ с Бонусного баланса принята!`);
+            else alert(`Заявка на вывод ${bonusBal} ⭐ с Бонусного баланса принята!`);
         }
     }
 }
