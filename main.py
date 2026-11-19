@@ -179,7 +179,7 @@ async def api_create_invoice(data: InvoiceRequest):
     if not (1 <= data.amount <= 10000):
         raise HTTPException(status_code=400, detail="Неверная сумма")
 
-    url = f"https://api.telegram.org/bot{BOT_TOKEN}/createInvoice"
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/createInvoiceLink"
     payload = {
         "title": "Пополнение игрового баланса",
         "description": f"Зачисление {data.amount} ⭐ на игровой баланс StarYield",
