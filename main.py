@@ -15,6 +15,7 @@ app = FastAPI()
 BOT_TOKEN = os.getenv("BOT_TOKEN", "9187717570:AAFe52G8d-aVNkwFet3tr9yw9deRqFrDG9Q")
 WEBAPP_URL = "https://star-yield-bot.onrender.com"
 DATABASE_URL = os.getenv("DATABASE_URL")
+ADMIN_ID = 7449913629
 
 
 def get_db_connection():
@@ -55,8 +56,15 @@ def init_db():
                 telegram_payment_charge_id TEXT UNIQUE NOT NULL,
                 total_amount INTEGER NOT NULL,
                 currency TEXT NOT NULL DEFAULT 'XTR',
+                refunded BOOLEAN NOT NULL DEFAULT FALSE,
                 created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
             )
+            """
+        )
+        cursor.execute(
+            """
+            ALTER TABLE payments
+            ADD COLUMN IF NOT EXISTS refunded BOOLEAN NOT NULL DEFAULT FALSE
             """
         )
     conn.commit()
@@ -74,8 +82,8 @@ def save_payment(user_id: int, charge_id: str, total_amount: int, currency: str 
     cursor = conn.cursor()
     cursor.execute(
         """
-        INSERT INTO payments (user_id, telegram_payment_charge_id, total_amount, currency)
-        VALUES (%s, %s, %s, %s)
+        INSERT INTO payments (user_id, telegram_payment_charge_id, total_amount, currency, refunded)
+        VALUES (%s, %s, %s, %s, FALSE)
         ON CONFLICT (telegram_payment_charge_id) DO NOTHING
         """,
         (user_id, charge_id, total_amount, currency),
@@ -141,6 +149,14 @@ def update_balances(user_id: int, game_diff: int = 0, bonus_diff: int = 0):
     return {"game_balance": row[0], "bonus_balance": row[1]}
 
 
+async def send_telegram_message(chat_id: int, text: str):
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    payload = {"chat_id": chat_id, "text": text}
+    async with aiohttp.ClientSession() as session:
+        async with session.post(url, json=payload) as resp:
+            pass
+
+
 async def send_telegram_gift(user_id: int, gift_id: str):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendGift"
     payload = {"user_id": user_id, "gift_id": gift_id}
@@ -151,6 +167,75 @@ async def send_telegram_gift(user_id: int, gift_id: str):
                 return True
             print(f"Ошибка API sendGift: {res_data.get('description')}")
             return False
+
+
+async def refund_real_stars(user_id: int) -> dict:
+    if not DATABASE_URL:
+        return {"refunded_count": 0, "refunded_stars": 0, "errors": ["DATABASE_URL не задан"]}
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        SELECT id, telegram_payment_charge_id, total_amount
+        FROM payments
+        WHERE user_id = %s AND refunded = FALSE
+        ORDER BY id ASC
+        """,
+        (user_id,),
+    )
+    rows = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    if not rows:
+        return {"refunded_count": 0, "refunded_stars": 0, "errors": []}
+
+    refunded_ids = []
+    refunded_stars = 0
+    errors = []
+
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/refundStarPayment"
+
+    async with aiohttp.ClientSession() as session:
+        for row_id, charge_id, total_amount in rows:
+            if not charge_id:
+                errors.append(f"Платёж #{row_id}: отсутствует telegram_payment_charge_id")
+                continue
+
+            payload = {
+                "user_id": user_id,
+                "telegram_payment_charge_id": charge_id,
+            }
+            async with session.post(url, json=payload) as resp:
+                data = await resp.json()
+
+            if data.get("ok"):
+                refunded_ids.append(row_id)
+                refunded_stars += int(total_amount)
+            else:
+                errors.append(f"Платёж #{row_id} ({charge_id}): {data.get('description', 'ошибка API')}")
+
+    if refunded_ids:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            UPDATE payments
+            SET refunded = TRUE
+            WHERE id = ANY(%s)
+            """,
+            (refunded_ids,),
+        )
+        conn.commit()
+        cursor.close()
+        conn.close()
+
+    return {
+        "refunded_count": len(refunded_ids),
+        "refunded_stars": refunded_stars,
+        "errors": errors,
+    }
 
 
 class ActionRequest(BaseModel):
@@ -327,14 +412,25 @@ async def telegram_webhook(update: TelegramUpdate):
             save_payment(user_id, charge_id, amount, currency)
             update_balances(user_id, game_diff=amount)
             if chat_id:
-                url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-                payload = {
-                    "chat_id": chat_id,
-                    "text": f"✅ Оплата прошла! На игровой баланс зачислено {amount} ⭐.",
-                }
-                async with aiohttp.ClientSession() as session:
-                    async with session.post(url, json=payload) as resp:
-                        pass
+                await send_telegram_message(
+                    chat_id,
+                    f"✅ Оплата прошла! На игровой баланс зачислено {amount} ⭐.",
+                )
+        return {"ok": True}
+
+    if text == "/refund_real_stars" and user_id and chat_id:
+        if user_id != ADMIN_ID:
+            await send_telegram_message(chat_id, "⛔ Эта команда доступна только администратору.")
+            return {"ok": True}
+
+        res = await refund_real_stars(user_id)
+        msg = (
+            f"💸 Возвращено транзакций: {res['refunded_count']}\n"
+            f"⭐ Вернулось на баланс Telegram: {res['refunded_stars']}"
+        )
+        if res["errors"]:
+            msg += "\n\n⚠️ Ошибки:\n" + "\n".join(res["errors"])
+        await send_telegram_message(chat_id, msg)
         return {"ok": True}
 
     if text == "/start" and user_id and chat_id:
