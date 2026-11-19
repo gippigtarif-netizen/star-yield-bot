@@ -12,7 +12,7 @@ from pydantic import BaseModel
 
 app = FastAPI()
 
-BOT_TOKEN = "9187717570:AAFe52G8d-aVNkwFet3tr9yw9deRqFrDG9Q"
+BOT_TOKEN = os.getenv("BOT_TOKEN", "9187717570:AAFe52G8d-aVNkwFet3tr9yw9deRqFrDG9Q")
 WEBAPP_URL = "https://star-yield-bot.onrender.com"
 DATABASE_URL = os.getenv("DATABASE_URL")
 
@@ -46,12 +46,43 @@ def init_db():
         )
         """
     )
+    if DATABASE_URL:
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS payments (
+                id SERIAL PRIMARY KEY,
+                user_id BIGINT NOT NULL,
+                telegram_payment_charge_id TEXT UNIQUE NOT NULL,
+                total_amount INTEGER NOT NULL,
+                currency TEXT NOT NULL DEFAULT 'XTR',
+                created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+            )
+            """
+        )
     conn.commit()
     cursor.close()
     conn.close()
 
 
 init_db()
+
+
+def save_payment(user_id: int, charge_id: str, total_amount: int, currency: str = "XTR"):
+    if not DATABASE_URL or not charge_id:
+        return
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        """
+        INSERT INTO payments (user_id, telegram_payment_charge_id, total_amount, currency)
+        VALUES (%s, %s, %s, %s)
+        ON CONFLICT (telegram_payment_charge_id) DO NOTHING
+        """,
+        (user_id, charge_id, total_amount, currency),
+    )
+    conn.commit()
+    cursor.close()
+    conn.close()
 
 
 def get_or_create_user(user_id: int, username: str = "", first_name: str = ""):
@@ -265,7 +296,6 @@ async def api_withdraw(data: WithdrawRequest):
 
 @app.post("/webhook")
 async def telegram_webhook(update: TelegramUpdate):
-    # Подтверждаем предчек-запрос оплаты звёздами
     if update.pre_checkout_query:
         query_id = update.pre_checkout_query.get("id")
         if query_id:
@@ -287,12 +317,14 @@ async def telegram_webhook(update: TelegramUpdate):
     username = user.get("username", "")
     first_name = user.get("first_name", "")
 
-    # Начисляем звёзды после успешной оплаты
     successful_payment = message.get("successful_payment")
     if successful_payment and user_id:
         amount = int(successful_payment.get("total_amount", 0))
+        charge_id = successful_payment.get("telegram_payment_charge_id", "")
+        currency = successful_payment.get("currency", "XTR")
         if amount > 0:
             get_or_create_user(user_id, username, first_name)
+            save_payment(user_id, charge_id, amount, currency)
             update_balances(user_id, game_diff=amount)
             if chat_id:
                 url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
