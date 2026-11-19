@@ -18,6 +18,8 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 ADMIN_ID = 7449913629
 
 GIFT_EMOJI_NAMES = {
+    "🎁": "Подарок",
+    "💐": "Букет",
     "🧸": "Мишка",
     "❤️": "Сердечко",
     "💖": "Сердечко",
