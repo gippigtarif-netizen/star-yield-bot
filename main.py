@@ -17,6 +17,81 @@ WEBAPP_URL = "https://star-yield-bot.onrender.com"
 DATABASE_URL = os.getenv("DATABASE_URL")
 ADMIN_ID = 7449913629
 
+# Курс перевода бонусных звёзд в игровые (1.0 = 1:1, 0.8 = -20% комиссия)
+BONUS_TO_GAME_RATE = 1.0
+MIN_BONUS_TRANSFER = 1
+
+# Линейка из 5 цветных билетов:
+# price — стоимость в game_balance
+# outcomes — список кортежей (reward_stars, weight, label)
+TICKETS = {
+    "gray": {
+        "id": "gray",
+        "name": "Серый билет",
+        "color": "#8e929b",
+        "price": 5,
+        "outcomes": [
+            (0, 52, "Пусто — повезёт в следующий раз"),
+            (3, 25, "3 ⭐"),
+            (6, 15, "6 ⭐"),
+            (12, 7, "12 ⭐"),
+            (25, 1, "25 ⭐ Джекпот!"),
+        ],
+    },
+    "blue": {
+        "id": "blue",
+        "name": "Синий билет",
+        "color": "#3b82f6",
+        "price": 15,
+        "outcomes": [
+            (0, 50, "Пусто"),
+            (10, 25, "10 ⭐"),
+            (20, 15, "20 ⭐"),
+            (35, 8, "35 ⭐"),
+            (75, 2, "75 ⭐ Джекпот!"),
+        ],
+    },
+    "burgundy": {
+        "id": "burgundy",
+        "name": "Бордовый билет",
+        "color": "#881337",
+        "price": 35,
+        "outcomes": [
+            (0, 48, "Пусто"),
+            (25, 25, "25 ⭐"),
+            (45, 16, "45 ⭐"),
+            (80, 9, "80 ⭐"),
+            (175, 2, "175 ⭐ Джекпот!"),
+        ],
+    },
+    "purple": {
+        "id": "purple",
+        "name": "Фиолетовый билет",
+        "color": "#9333ea",
+        "price": 75,
+        "outcomes": [
+            (0, 46, "Пусто"),
+            (50, 25, "50 ⭐"),
+            (95, 17, "95 ⭐"),
+            (170, 10, "170 ⭐"),
+            (380, 2, "380 ⭐ Джекпот!"),
+        ],
+    },
+    "gold": {
+        "id": "gold",
+        "name": "Золотой билет",
+        "color": "#eab308",
+        "price": 150,
+        "outcomes": [
+            (0, 45, "Пусто"),
+            (100, 25, "100 ⭐"),
+            (190, 17, "190 ⭐"),
+            (350, 11, "350 ⭐"),
+            (800, 2, "800 ⭐ Джекпот!"),
+        ],
+    },
+}
+
 GIFT_EMOJI_NAMES = {
     "🎁": "Подарок",
     "💐": "Букет",
@@ -39,6 +114,15 @@ def format_gift_name(gift: dict, index: int) -> str:
     if emoji in GIFT_EMOJI_NAMES:
         return f"{emoji} {GIFT_EMOJI_NAMES[emoji]}"
     return f"{emoji} Подарок #{index + 1}"
+
+
+def roll_ticket_outcome(ticket_id: str) -> tuple[int, str]:
+    ticket = TICKETS[ticket_id]
+    outcomes = ticket["outcomes"]
+    weights = [item[1] for item in outcomes]
+    chosen = random.choices(outcomes, weights=weights, k=1)[0]
+    reward_stars, _, label = chosen
+    return int(reward_stars), label
 
 
 def get_db_connection():
@@ -135,7 +219,7 @@ def get_or_create_user(user_id: int, username: str = "", first_name: str = ""):
         conn.commit()
         game_bal, bonus_bal = 0, 0
     else:
-        game_bal, bonus_bal = row[1], row[2]
+        game_bal, bonus_bal = int(row[1] or 0), int(row[2] or 0)
         cursor.execute(
             f"UPDATE users SET username = {ph}, first_name = {ph} WHERE user_id = {ph}",
             (username, first_name, user_id),
@@ -152,14 +236,26 @@ def update_balances(user_id: int, game_diff: int = 0, bonus_diff: int = 0):
     cursor = conn.cursor()
     ph = "%s" if DATABASE_URL else "?"
 
-    cursor.execute(
-        f"""
-        UPDATE users
-        SET game_balance = game_balance + {ph}, bonus_balance = bonus_balance + {ph}
-        WHERE user_id = {ph}
-        """,
-        (game_diff, bonus_diff, user_id),
-    )
+    if DATABASE_URL:
+        cursor.execute(
+            f"""
+            UPDATE users
+            SET game_balance = GREATEST(0, game_balance + {ph}),
+                bonus_balance = GREATEST(0, bonus_balance + {ph})
+            WHERE user_id = {ph}
+            """,
+            (game_diff, bonus_diff, user_id),
+        )
+    else:
+        cursor.execute(
+            f"""
+            UPDATE users
+            SET game_balance = MAX(0, game_balance + {ph}),
+                bonus_balance = MAX(0, bonus_balance + {ph})
+            WHERE user_id = {ph}
+            """,
+            (game_diff, bonus_diff, user_id),
+        )
     conn.commit()
 
     cursor.execute(
@@ -169,7 +265,7 @@ def update_balances(user_id: int, game_diff: int = 0, bonus_diff: int = 0):
     row = cursor.fetchone()
     cursor.close()
     conn.close()
-    return {"game_balance": row[0], "bonus_balance": row[1]}
+    return {"game_balance": int(row[0] or 0), "bonus_balance": int(row[1] or 0)}
 
 
 async def send_telegram_message(chat_id: int, text: str):
@@ -275,6 +371,20 @@ class SpinRequest(BaseModel):
     first_name: str = ""
 
 
+class OpenTicketRequest(BaseModel):
+    user_id: int
+    ticket_id: str
+    username: str = ""
+    first_name: str = ""
+
+
+class BonusTransferRequest(BaseModel):
+    user_id: int
+    amount: int
+    username: str = ""
+    first_name: str = ""
+
+
 class InvoiceRequest(BaseModel):
     amount: int
 
@@ -299,8 +409,97 @@ def api_get_balance(user_id: int, username: str = "", first_name: str = ""):
 
 @app.post("/api/add_reward")
 def api_add_reward(data: ActionRequest):
+    if data.reward < 0:
+        raise HTTPException(status_code=400, detail="Награда не может быть отрицательной")
     balances = update_balances(data.user_id, bonus_diff=data.reward)
     return {"success": True, **balances}
+
+
+@app.post("/api/transfer_bonus")
+def api_transfer_bonus(data: BonusTransferRequest):
+    """Односторонний перевод: bonus_balance -> game_balance (обратный перевод запрещён)."""
+    if data.amount < MIN_BONUS_TRANSFER:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Минимальная сумма перевода: {MIN_BONUS_TRANSFER} бонусных ⭐",
+        )
+
+    user_data = get_or_create_user(data.user_id, data.username, data.first_name)
+    if user_data["bonus_balance"] < data.amount:
+        return {
+            "success": False,
+            "error": f"Недостаточно бонусных звёзд! Доступно: {user_data['bonus_balance']} ⭐",
+        }
+
+    game_received = int(data.amount * BONUS_TO_GAME_RATE)
+    if game_received <= 0:
+        return {
+            "success": False,
+            "error": "Сумма слишком мала для конвертации в игровой баланс",
+        }
+
+    balances = update_balances(
+        data.user_id,
+        game_diff=game_received,
+        bonus_diff=-data.amount,
+    )
+    return {
+        "success": True,
+        "spent_bonus": data.amount,
+        "received_game": game_received,
+        **balances,
+    }
+
+
+@app.get("/api/tickets")
+def api_get_tickets():
+    return {
+        "success": True,
+        "tickets": [
+            {
+                "id": t["id"],
+                "name": t["name"],
+                "color": t["color"],
+                "price": t["price"],
+                "prizes": [item[2] for item in t["outcomes"] if item[0] > 0],
+            }
+            for t in TICKETS.values()
+        ],
+    }
+
+
+@app.post("/api/open_ticket")
+def api_open_ticket(data: OpenTicketRequest):
+    ticket_key = (data.ticket_id or "").strip().lower()
+    if ticket_key not in TICKETS:
+        raise HTTPException(status_code=400, detail="Неизвестный тип билета")
+
+    ticket = TICKETS[ticket_key]
+    price = int(ticket["price"])
+
+    user_data = get_or_create_user(data.user_id, data.username, data.first_name)
+    if user_data["game_balance"] < price:
+        return {
+            "success": False,
+            "error": f"Недостаточно звёзд на игровом балансе! Нужно {price} ⭐, у вас {user_data['game_balance']} ⭐.",
+        }
+
+    # Списываем стоимость билета с игрового баланса
+    update_balances(data.user_id, game_diff=-price)
+
+    reward_stars, label = roll_ticket_outcome(ticket_key)
+    balances = update_balances(data.user_id, game_diff=reward_stars)
+
+    return {
+        "success": True,
+        "ticket_id": ticket_key,
+        "ticket_name": ticket["name"],
+        "price": price,
+        "won": reward_stars > 0,
+        "prize": reward_stars,
+        "label": label,
+        **balances,
+    }
 
 
 @app.get("/api/get_gifts")
@@ -351,7 +550,7 @@ def api_spin_wheel(data: SpinRequest):
     if user_data["game_balance"] < bet:
         return {"success": False, "error": "Недостаточно звёзд на балансе!"}
 
-    balances = update_balances(data.user_id, game_diff=-bet)
+    update_balances(data.user_id, game_diff=-bet)
 
     clamped = min(bet, 1000)
     chance = min(0.00999 * (clamped / 1000) ** 0.7, 0.00999)
@@ -361,6 +560,8 @@ def api_spin_wheel(data: SpinRequest):
     if is_win:
         prize = bet * 2
         balances = update_balances(data.user_id, game_diff=prize)
+    else:
+        balances = get_or_create_user(data.user_id, data.username, data.first_name)
 
     return {
         "success": True,
