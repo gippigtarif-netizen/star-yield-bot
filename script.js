@@ -41,6 +41,7 @@ const TICKET_UI = {
 };
 
 let selectedTicketId = "gray";
+let ticketsOpenedCount = 0;
 let isOpeningTicket = false;
 let isWithdrawingGift = false;
 let isTransferringBonus = false;
@@ -55,8 +56,16 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     updateTicketPreview(selectedTicketId);
+    renderTicketsCounter();
     loadBalance();
 });
+
+function renderTicketsCounter() {
+    const el = document.getElementById("tickets-balance-count");
+    if (el) {
+        el.textContent = `🎫 ${ticketsOpenedCount}`;
+    }
+}
 
 function switchTab(tabName) {
     const tabTasks = document.getElementById("tab-tasks");
@@ -95,6 +104,10 @@ function renderBalances(data) {
     }
     if (data.bonus_balance !== undefined) {
         document.getElementById("bonus-balance-amount").textContent = data.bonus_balance;
+    }
+    if (data.tickets_count !== undefined) {
+        ticketsOpenedCount = Number(data.tickets_count) || 0;
+        renderTicketsCounter();
     }
 }
 
@@ -167,6 +180,69 @@ function selectTicket(ticketId, btnElement) {
 
     updateTicketPreview(ticketId);
     if (tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
+}
+
+function closeTicketShopModal() {
+    const modal = document.getElementById("ticket-shop-modal");
+    if (modal) modal.remove();
+}
+
+function openTicketShopModal() {
+    closeTicketShopModal();
+
+    const gameBal = parseInt(document.getElementById("game-balance-amount").textContent) || 0;
+    const modal = document.createElement("div");
+    modal.id = "ticket-shop-modal";
+    modal.style.cssText = `
+        position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+        display: flex; align-items: center; justify-content: center;
+        z-index: 9999; padding: 16px;
+    `;
+
+    const box = document.createElement("div");
+    box.style.cssText = `
+        width: 100%; max-width: 380px; background: #181c24; color: #fff;
+        border-radius: 16px; padding: 16px; border: 1px solid rgba(255,255,255,0.12);
+    `;
+
+    box.innerHTML = `
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+            <div style="font-weight:700; font-size:16px;">🎫 Выбор билета (${gameBal} ⭐)</div>
+            <button id="close-ticket-shop-btn" style="background:#2a303c; color:#fff; border:none; border-radius:8px; padding:4px 10px; cursor:pointer;">✕</button>
+        </div>
+        <div id="ticket-shop-list"></div>
+    `;
+
+    modal.appendChild(box);
+    document.body.appendChild(modal);
+
+    document.getElementById("close-ticket-shop-btn").onclick = closeTicketShopModal;
+    modal.addEventListener("click", (e) => {
+        if (e.target === modal) closeTicketShopModal();
+    });
+
+    const listEl = document.getElementById("ticket-shop-list");
+    Object.values(TICKET_UI).forEach(info => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.style.cssText = `
+            width: 100%; display: flex; justify-content: space-between; align-items: center;
+            padding: 11px 12px; margin-bottom: 8px; border-radius: 12px;
+            border: 1px solid ${info.color}; background: #1f2633; color: #fff;
+            cursor: pointer; font-size: 14px; font-weight: 700;
+        `;
+        btn.innerHTML = `
+            <span>${info.name}</span>
+            <span style="color:#fde047;">${info.price} ⭐</span>
+        `;
+        btn.onclick = () => {
+            const targetCard = document.querySelector(`.ticket-item[data-ticket="${info.id}"]`);
+            selectTicket(info.id, targetCard || null);
+            closeTicketShopModal();
+            openSelectedTicket();
+        };
+        listEl.appendChild(btn);
+    });
 }
 
 async function openBonusTransferPrompt() {
@@ -312,6 +388,9 @@ async function openSelectedTicket() {
         if (statusEl) statusEl.textContent = "Ошибка соединения с сервером";
         return;
     }
+
+    ticketsOpenedCount += 1;
+    renderTicketsCounter();
 
     const balanceAfterBuy = resultData.won
         ? Math.max(0, resultData.game_balance - resultData.prize)
