@@ -50,7 +50,7 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 14px;
+    margin-bottom: 12px;
 }
 
 .app-title {
@@ -67,29 +67,31 @@ body {
     border-radius: 20px;
 }
 
-.balance-card {
+.dual-balances {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.sub-balance-card {
     background: linear-gradient(145deg, #1b2842 0%, #111827 100%);
-    border: 1px solid rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.08);
     border-radius: 16px;
-    padding: 20px;
+    padding: 12px;
     text-align: center;
 }
 
-.balance-label {
-    font-size: 13px;
+.sub-balance-label {
+    font-size: 11px;
     color: #9ca3af;
-    margin-bottom: 6px;
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
 }
 
-.balance-row {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-}
-
-.balance-value {
-    font-size: 36px;
+.sub-balance-val {
+    font-size: 22px;
     font-weight: 800;
     background: linear-gradient(135deg, #fde047 0%, #f59e0b 100%);
     -webkit-background-clip: text;
@@ -97,14 +99,46 @@ body {
 }
 
 .star-icon {
-    font-size: 30px;
+    font-size: 18px;
     display: inline-block;
     animation: floatStar 3s ease-in-out infinite;
 }
 
 @keyframes floatStar {
     0%, 100% { transform: translateY(0) rotate(0deg); }
-    50% { transform: translateY(-4px) rotate(6deg); }
+    50% { transform: translateY(-3px) rotate(6deg); }
+}
+
+.topup-mini-btn {
+    margin-top: 8px;
+    width: 100%;
+    padding: 7px 8px;
+    border: none;
+    border-radius: 10px;
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 12px rgba(34, 197, 94, 0.25);
+}
+
+.transfer-mini-btn {
+    margin-top: 8px;
+    width: 100%;
+    padding: 7px 8px;
+    border: 1px solid rgba(168, 85, 247, 0.45);
+    border-radius: 10px;
+    background: rgba(147, 51, 234, 0.22);
+    color: #e9d5ff;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.transfer-mini-btn:hover {
+    background: rgba(147, 51, 234, 0.34);
 }
 
 .tabs {
@@ -233,7 +267,7 @@ body {
     color: #9ca3af;
 }
 
-/* Мини-игры: Колесо Фортуны */
+/* 5 цветных билетов */
 .game-card {
     background: rgba(24, 30, 44, 0.85);
     border: 1px solid rgba(255, 255, 255, 0.07);
@@ -269,57 +303,112 @@ body {
     color: #9ca3af;
 }
 
-.bet-selector {
+.tickets-grid {
     display: flex;
-    gap: 6px;
-    justify-content: center;
-    margin-bottom: 20px;
+    flex-direction: column;
+    gap: 8px;
+    margin: 12px 0 14px;
 }
 
-.bet-btn {
-    flex: 1;
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.08);
-    color: #9ca3af;
-    font-size: 13px;
-    font-weight: 700;
-    padding: 8px 0;
-    border-radius: 10px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.bet-btn.active {
-    background: rgba(34, 197, 94, 0.2);
-    border-color: #22c55e;
-    color: #4ade80;
-}
-
-/* Контейнер колеса */
-.wheel-container {
-    position: relative;
-    width: 200px;
-    height: 200px;
-    margin: 0 auto 18px auto;
-}
-
-.wheel-pointer {
-    position: absolute;
-    top: -13px;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 24px;
-    color: #f59e0b;
-    z-index: 10;
-    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.8));
-}
-
-.wheel {
+.ticket-item {
     width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    transition: transform 4s cubic-bezier(0.15, 0.9, 0.2, 1);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 11px 13px;
+    border-radius: 14px;
+    background: rgba(17, 24, 39, 0.88);
+    border: 1.5px solid rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+    cursor: pointer;
+    transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+    text-align: left;
+}
+
+.ticket-item:active {
+    transform: scale(0.99);
+}
+
+.ticket-item.active {
+    background: rgba(30, 41, 59, 0.96);
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.35);
+}
+
+.ticket-left {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+}
+
+.ticket-swatch {
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+}
+
+.ticket-title {
+    font-size: 14px;
+    font-weight: 700;
+}
+
+.ticket-sub {
+    font-size: 11px;
+    color: #9ca3af;
+    margin-top: 2px;
+}
+
+.ticket-price-pill {
+    padding: 5px 10px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    font-size: 12px;
+    font-weight: 800;
+    color: #fde047;
+    white-space: nowrap;
+}
+
+.ticket-stage {
+    margin: 12px 0 14px;
+    padding: 16px 14px;
+    border-radius: 16px;
+    background: rgba(15, 23, 42, 0.8);
+    border: 1.5px dashed rgba(255, 255, 255, 0.2);
+    text-align: center;
+    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+}
+
+.ticket-stage.opening {
+    transform: scale(1.02);
+    border-style: solid;
+    box-shadow: 0 0 24px rgba(250, 204, 21, 0.2);
+}
+
+.ticket-stage-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 800;
+    letter-spacing: 0.4px;
+    background: rgba(255, 255, 255, 0.08);
+    margin-bottom: 6px;
+}
+
+.ticket-stage-title {
+    font-size: 17px;
+    font-weight: 800;
+    color: #ffffff;
+}
+
+.ticket-stage-prizes {
+    font-size: 12px;
+    color: #9ca3af;
+    margin-top: 5px;
 }
 
 .spin-action-btn {
