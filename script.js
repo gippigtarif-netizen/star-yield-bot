@@ -7,10 +7,48 @@ const userId = user.id || 123456789;
 const username = user.username || "";
 const firstName = user.first_name || "Игрок";
 
-let currentBet = 5;
-let currentRotation = 0;
-let isSpinning = false;
+const TICKET_UI = {
+    gray: {
+        id: "gray",
+        name: "Серый билет",
+        price: 5,
+        color: "#8e929b",
+        prizes: "3 ⭐, 6 ⭐, 12 ⭐, 25 ⭐"
+    },
+    blue: {
+        id: "blue",
+        name: "Синий билет",
+        price: 15,
+        color: "#3b82f6",
+        prizes: "10 ⭐, 20 ⭐, 35 ⭐, 75 ⭐"
+    },
+    burgundy: {
+        id: "burgundy",
+        name: "Бордовый билет",
+        price: 35,
+        color: "#881337",
+        prizes: "25 ⭐, 45 ⭐, 80 ⭐, 175 ⭐"
+    },
+    purple: {
+        id: "purple",
+        name: "Фиолетовый билет",
+        price: 75,
+        color: "#9333ea",
+        prizes: "50 ⭐, 95 ⭐, 170 ⭐, 380 ⭐"
+    },
+    gold: {
+        id: "gold",
+        name: "Золотой билет",
+        price: 150,
+        color: "#eab308",
+        prizes: "100 ⭐, 190 ⭐, 350 ⭐, 800 ⭐"
+    }
+};
+
+let selectedTicketId = "gray";
+let isOpeningTicket = false;
 let isWithdrawingGift = false;
+let isTransferringBonus = false;
 
 document.addEventListener("DOMContentLoaded", () => {
     const nameEl = document.getElementById("user-name");
@@ -21,7 +59,7 @@ document.addEventListener("DOMContentLoaded", () => {
         avatarEl.textContent = firstName.charAt(0).toUpperCase();
     }
 
-    updateBetPreview(currentBet);
+    updateTicketPreview(selectedTicketId);
     loadBalance();
 });
 
@@ -96,52 +134,104 @@ async function completeTask(reward, btnElement) {
     }
 }
 
-function updateBetPreview(amount) {
-    const winLabel = document.getElementById("potential-win-label");
-    const chanceLabel = document.getElementById("win-chance-label");
+function updateTicketPreview(ticketId) {
+    const info = TICKET_UI[ticketId] || TICKET_UI.gray;
+    const badgeEl = document.getElementById("stage-badge");
+    const titleEl = document.getElementById("stage-title");
+    const prizesEl = document.getElementById("stage-prizes");
+    const openBtn = document.getElementById("open-ticket-btn");
+    const stageEl = document.getElementById("ticket-stage");
 
-    if (!amount || amount < 1) {
-        if (winLabel) winLabel.textContent = "0 ⭐";
-        if (chanceLabel) chanceLabel.textContent = "0%";
-        return;
+    if (badgeEl) {
+        badgeEl.textContent = `${info.name.toUpperCase()} • ${info.price} ⭐`;
+        badgeEl.style.border = `1px solid ${info.color}`;
     }
-
-    const clamped = Math.min(amount, 1000);
-    const chance = Math.min(0.999 * Math.pow(clamped / 1000, 0.7), 0.999);
-
-    if (winLabel) winLabel.textContent = `${clamped * 2} ⭐`;
-    if (chanceLabel) chanceLabel.textContent = `${chance.toFixed(3)}%`;
+    if (titleEl && !isOpeningTicket) {
+        titleEl.textContent = "Готов к открытию";
+    }
+    if (prizesEl) {
+        prizesEl.textContent = `Возможные выигрыши: ${info.prizes}`;
+    }
+    if (openBtn) {
+        openBtn.textContent = `Открыть ${info.name} (${info.price} ⭐)`;
+    }
+    if (stageEl) {
+        stageEl.style.borderColor = info.color;
+    }
 }
 
-function selectBet(amount, btnElement) {
-    if (isSpinning) return;
-    currentBet = amount;
-    const input = document.getElementById("custom-bet-input");
-    if (input) input.value = amount;
+function selectTicket(ticketId, btnElement) {
+    if (isOpeningTicket || !TICKET_UI[ticketId]) return;
+    selectedTicketId = ticketId;
 
-    document.querySelectorAll(".bet-btn").forEach(btn => btn.classList.remove("active"));
-    if (btnElement) btnElement.classList.add("active");
+    document.querySelectorAll(".ticket-item").forEach(item => {
+        item.classList.remove("active");
+        item.style.borderColor = "rgba(255, 255, 255, 0.12)";
+    });
 
-    updateBetPreview(amount);
+    if (btnElement) {
+        btnElement.classList.add("active");
+        btnElement.style.borderColor = TICKET_UI[ticketId].color;
+    }
+
+    updateTicketPreview(ticketId);
     if (tg.HapticFeedback) tg.HapticFeedback.selectionChanged();
 }
 
-function onCustomBetInput(rawValue) {
-    if (isSpinning) return;
-    document.querySelectorAll(".bet-btn").forEach(btn => btn.classList.remove("active"));
+async function openBonusTransferPrompt() {
+    if (isTransferringBonus) return;
 
-    let val = parseInt(rawValue, 10);
-    if (isNaN(val)) {
-        currentBet = 0;
-        updateBetPreview(0);
+    const bonusBal = parseInt(document.getElementById("bonus-balance-amount").textContent) || 0;
+    if (bonusBal <= 0) {
+        if (tg.showAlert) tg.showAlert("На Бонусном балансе пока 0 ⭐.");
+        else alert("На Бонусном балансе пока 0 ⭐.");
         return;
     }
-    if (val > 1000) {
-        val = 1000;
-        document.getElementById("custom-bet-input").value = 1000;
+
+    const raw = prompt(
+        `Перевод с Бонусного баланса на Игровой (обратный перевод невозможен).\nДоступно бонусов: ${bonusBal} ⭐`,
+        String(bonusBal)
+    );
+    if (!raw) return;
+
+    const amount = parseInt(raw, 10);
+    if (isNaN(amount) || amount < 1 || amount > bonusBal) {
+        if (tg.showAlert) tg.showAlert(`Введите число от 1 до ${bonusBal} ⭐`);
+        else alert(`Введите число от 1 до ${bonusBal} ⭐`);
+        return;
     }
-    currentBet = val;
-    updateBetPreview(val);
+
+    isTransferringBonus = true;
+    try {
+        const res = await fetch("/api/transfer_bonus", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                user_id: userId,
+                amount,
+                username,
+                first_name: firstName
+            })
+        });
+        const data = await res.json();
+        if (res.ok && data.success) {
+            renderBalances(data);
+            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("success");
+            const msg = `Переведено ${data.spent_bonus} бонусных ⭐ → +${data.received_game} игровых ⭐.`;
+            if (tg.showAlert) tg.showAlert(msg);
+            else alert(msg);
+        } else {
+            if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("error");
+            const errMsg = data.error || "Ошибка перевода бонусов";
+            if (tg.showAlert) tg.showAlert(errMsg);
+            else alert(errMsg);
+        }
+    } catch (e) {
+        console.error("Ошибка перевода бонусов:", e);
+        if (tg.showAlert) tg.showAlert("Ошибка соединения с сервером");
+    } finally {
+        isTransferringBonus = false;
+    }
 }
 
 async function openTopupPrompt() {
@@ -175,92 +265,93 @@ async function openTopupPrompt() {
     }
 }
 
-async function spinWheel() {
-    if (isSpinning) return;
+async function openSelectedTicket() {
+    if (isOpeningTicket) return;
 
-    if (!currentBet || currentBet < 1 || currentBet > 1000) {
-        if (tg.showAlert) tg.showAlert("Введите ставку от 1 до 1000 ⭐!");
-        else alert("Введите ставку от 1 до 1000 ⭐!");
-        return;
-    }
-
+    const ticketInfo = TICKET_UI[selectedTicketId] || TICKET_UI.gray;
     const gameBalance = parseInt(document.getElementById("game-balance-amount").textContent) || 0;
-    if (gameBalance < currentBet) {
-        if (tg.showAlert) tg.showAlert("Недостаточно звёзд на Игровом балансе! Нажмите «+ Пополнить».");
-        else alert("Недостаточно звёзд на Игровом балансе!");
+
+    if (gameBalance < ticketInfo.price) {
+        const msg = `Недостаточно звёзд для билета «${ticketInfo.name}» (${ticketInfo.price} ⭐).`;
+        if (tg.showAlert) tg.showAlert(msg);
+        else alert(msg);
         return;
     }
 
-    isSpinning = true;
-    const spinBtn = document.getElementById("spin-btn");
+    isOpeningTicket = true;
+    const openBtn = document.getElementById("open-ticket-btn");
     const statusEl = document.getElementById("game-status");
-    const wheel = document.getElementById("fortune-wheel");
+    const stageEl = document.getElementById("ticket-stage");
+    const stageTitleEl = document.getElementById("stage-title");
 
-    spinBtn.disabled = true;
-    statusEl.textContent = "Колесо крутится...";
+    if (openBtn) openBtn.disabled = true;
+    if (stageEl) stageEl.classList.add("opening");
+    if (stageTitleEl) stageTitleEl.textContent = "Стираем защитный слой...";
+    if (statusEl) statusEl.textContent = `Открываем ${ticketInfo.name}...`;
 
-    let spinResult = null;
+    let resultData = null;
     try {
-        const res = await fetch("/api/spin_wheel", {
+        const res = await fetch("/api/open_ticket", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
                 user_id: userId,
-                bet: currentBet,
+                ticket_id: selectedTicketId,
                 username,
                 first_name: firstName
             })
         });
-        spinResult = await res.json();
+        resultData = await res.json();
 
-        if (!res.ok || !spinResult.success) {
-            isSpinning = false;
-            spinBtn.disabled = false;
-            statusEl.textContent = spinResult.error || "Ошибка ставки";
-            if (tg.showAlert) tg.showAlert(spinResult.error || "Ошибка ставки");
+        if (!res.ok || !resultData.success) {
+            isOpeningTicket = false;
+            if (openBtn) openBtn.disabled = false;
+            if (stageEl) stageEl.classList.remove("opening");
+            if (stageTitleEl) stageTitleEl.textContent = "Готов к открытию";
+            const errText = resultData.error || "Ошибка открытия билета";
+            if (statusEl) statusEl.textContent = errText;
+            if (tg.showAlert) tg.showAlert(errText);
             return;
         }
     } catch (e) {
-        isSpinning = false;
-        spinBtn.disabled = false;
-        statusEl.textContent = "Ошибка соединения с сервером";
+        isOpeningTicket = false;
+        if (openBtn) openBtn.disabled = false;
+        if (stageEl) stageEl.classList.remove("opening");
+        if (stageTitleEl) stageTitleEl.textContent = "Готов к открытию";
+        if (statusEl) statusEl.textContent = "Ошибка соединения с сервером";
         return;
     }
 
-    const displayDuringSpin = spinResult.won
-        ? spinResult.game_balance - spinResult.prize
-        : spinResult.game_balance;
-    document.getElementById("game-balance-amount").textContent = Math.max(0, displayDuringSpin);
-
-    const isWin = spinResult.won;
-    const desiredFinalAngle = isWin
-        ? 342
-        : 20 + Math.floor(Math.random() * 290);
-
-    const currentMod = currentRotation % 360;
-    let deltaAngle = desiredFinalAngle - currentMod;
-    if (deltaAngle < 0) deltaAngle += 360;
-
-    currentRotation += (360 * 5) + deltaAngle;
-    wheel.style.transform = `rotate(${currentRotation}deg)`;
+    // Показываем списание цены билета до раскрытия приза
+    const balanceAfterBuy = resultData.won
+        ? Math.max(0, resultData.game_balance - resultData.prize)
+        : resultData.game_balance;
+    document.getElementById("game-balance-amount").textContent = balanceAfterBuy;
 
     if (tg.HapticFeedback) {
         tg.HapticFeedback.impactOccurred("medium");
     }
 
     setTimeout(() => {
-        isSpinning = false;
-        spinBtn.disabled = false;
-        renderBalances(spinResult);
+        isOpeningTicket = false;
+        if (openBtn) openBtn.disabled = false;
+        if (stageEl) stageEl.classList.remove("opening");
+        renderBalances(resultData);
 
-        if (isWin) {
-            statusEl.textContent = `🎉 ПОБЕДА! Вы выиграли ${spinResult.prize} ⭐!`;
+        if (resultData.won) {
+            if (stageTitleEl) stageTitleEl.textContent = `Выигрыш: ${resultData.label}`;
+            if (statusEl) {
+                statusEl.textContent = `🎉 ${ticketInfo.name}: выпало ${resultData.label} (+${resultData.prize} ⭐)!`;
+            }
             if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("success");
         } else {
-            statusEl.textContent = `😢 Не повезло! Ставка ${currentBet} ⭐ сгорела. Попробуй еще раз!`;
+            if (stageTitleEl) stageTitleEl.textContent = "Пусто";
+            if (statusEl) {
+                statusEl.textContent = `😢 ${ticketInfo.name}: пусто (-${ticketInfo.price} ⭐). Попробуй ещё раз!`;
+            }
             if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("error");
         }
-    }, 4000);
+    }, 900);
 }
 
 function closeGiftModal() {
