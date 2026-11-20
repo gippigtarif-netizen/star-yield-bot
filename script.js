@@ -12,36 +12,31 @@ const TICKET_UI = {
         id: "gray",
         name: "Серый билет",
         price: 5,
-        color: "#8e929b",
-        prizes: "3 ⭐, 6 ⭐, 12 ⭐, 25 ⭐"
+        color: "#8e929b"
     },
     blue: {
         id: "blue",
         name: "Синий билет",
         price: 15,
-        color: "#3b82f6",
-        prizes: "10 ⭐, 20 ⭐, 35 ⭐, 75 ⭐"
+        color: "#3b82f6"
     },
     burgundy: {
         id: "burgundy",
         name: "Бордовый билет",
         price: 35,
-        color: "#881337",
-        prizes: "25 ⭐, 45 ⭐, 80 ⭐, 175 ⭐"
+        color: "#881337"
     },
     purple: {
         id: "purple",
         name: "Фиолетовый билет",
         price: 75,
-        color: "#9333ea",
-        prizes: "50 ⭐, 95 ⭐, 170 ⭐, 380 ⭐"
+        color: "#9333ea"
     },
     gold: {
         id: "gold",
         name: "Золотой билет",
         price: 150,
-        color: "#eab308",
-        prizes: "100 ⭐, 190 ⭐, 350 ⭐, 800 ⭐"
+        color: "#eab308"
     }
 };
 
@@ -138,7 +133,6 @@ function updateTicketPreview(ticketId) {
     const info = TICKET_UI[ticketId] || TICKET_UI.gray;
     const badgeEl = document.getElementById("stage-badge");
     const titleEl = document.getElementById("stage-title");
-    const prizesEl = document.getElementById("stage-prizes");
     const openBtn = document.getElementById("open-ticket-btn");
     const stageEl = document.getElementById("ticket-stage");
 
@@ -148,9 +142,6 @@ function updateTicketPreview(ticketId) {
     }
     if (titleEl && !isOpeningTicket) {
         titleEl.textContent = "Готов к открытию";
-    }
-    if (prizesEl) {
-        prizesEl.textContent = `Возможные выигрыши: ${info.prizes}`;
     }
     if (openBtn) {
         openBtn.textContent = `Открыть ${info.name} (${info.price} ⭐)`;
@@ -322,7 +313,6 @@ async function openSelectedTicket() {
         return;
     }
 
-    // Показываем списание цены билета до раскрытия приза
     const balanceAfterBuy = resultData.won
         ? Math.max(0, resultData.game_balance - resultData.prize)
         : resultData.game_balance;
