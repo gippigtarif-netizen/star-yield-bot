@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>StarYield</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="style.css?v=15">
+    <link rel="stylesheet" href="style.css?v=18">
     <style>
         .dual-balances {
             display: grid;
@@ -43,6 +43,53 @@
             font-size: 12px;
             font-weight: 700;
             cursor: pointer;
+        }
+        .tickets-top-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        .tickets-top-bar h3 {
+            margin: 0;
+            font-size: 18px;
+            font-weight: 700;
+        }
+        .tickets-wallet-box {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(11, 15, 25, 0.92);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 12px;
+            padding: 5px 6px 5px 10px;
+        }
+        .tickets-wallet-count {
+            font-size: 13px;
+            font-weight: 800;
+            color: #fde047;
+            white-space: nowrap;
+        }
+        .tickets-plus-btn {
+            width: 26px;
+            height: 26px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #22c55e, #16a34a);
+            color: #ffffff;
+            font-size: 17px;
+            font-weight: 800;
+            line-height: 1;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 3px 10px rgba(34, 197, 94, 0.45);
+            transition: transform 0.15s ease;
+        }
+        .tickets-plus-btn:active {
+            transform: scale(0.92);
         }
         .tickets-grid {
             display: grid;
@@ -143,7 +190,7 @@
 
             <div class="dual-balances">
                 <div class="sub-balance-card">
-                    <p class="sub-balance-label">🎟️ Игровой (Билеты)</p>
+                    <p class="sub-balance-label">🎟️ ИГРОВОЙ</p>
                     <div>
                         <span id="game-balance-amount" class="sub-balance-val">0</span>
                         <span class="star-icon">⭐</span>
@@ -152,7 +199,7 @@
                 </div>
 
                 <div class="sub-balance-card">
-                    <p class="sub-balance-label">🎁 Бонусный (Задания)</p>
+                    <p class="sub-balance-label">🎁 БОНУСНЫЙ</p>
                     <div>
                         <span id="bonus-balance-amount" class="sub-balance-val">0</span>
                         <span class="star-icon">⭐</span>
@@ -214,8 +261,12 @@
             <h2 class="section-title">Цветные билеты</h2>
 
             <div class="game-card">
-                <div class="game-header">
+                <div class="tickets-top-bar">
                     <h3>Выбери билет</h3>
+                    <div class="tickets-wallet-box">
+                        <span id="tickets-balance-count" class="tickets-wallet-count">🎫 0</span>
+                        <button type="button" class="tickets-plus-btn" title="Купить билет" onclick="openTicketShopModal()">+</button>
+                    </div>
                 </div>
 
                 <div id="tickets-list" class="tickets-grid">
@@ -313,6 +364,6 @@
         </main>
     </div>
 
-    <script src="script.js?v=16"></script>
+    <script src="script.js?v=18"></script>
 </body>
 </html>
