@@ -44,18 +44,6 @@
             font-weight: 700;
             cursor: pointer;
         }
-        .transfer-mini-btn {
-            margin-top: 8px;
-            width: 100%;
-            padding: 6px 8px;
-            border: 1px solid rgba(168, 85, 247, 0.45);
-            border-radius: 8px;
-            background: rgba(147, 51, 234, 0.22);
-            color: #e9d5ff;
-            font-size: 11px;
-            font-weight: 700;
-            cursor: pointer;
-        }
         .tickets-grid {
             display: grid;
             grid-template-columns: 1fr;
@@ -141,11 +129,6 @@
             font-weight: 800;
             margin: 4px 0;
         }
-        .ticket-stage-prizes {
-            font-size: 12px;
-            color: #9ca3af;
-            margin: 6px 0 0 0;
-        }
     </style>
 </head>
 <body>
@@ -156,7 +139,6 @@
         <header class="header">
             <div class="header-top">
                 <span class="app-title">StarYield</span>
-                <span class="badge">5 Tickets</span>
             </div>
 
             <div class="dual-balances">
@@ -175,7 +157,6 @@
                         <span id="bonus-balance-amount" class="sub-balance-val">0</span>
                         <span class="star-icon">⭐</span>
                     </div>
-                    <button class="transfer-mini-btn" onclick="openBonusTransferPrompt()">→ В игровой</button>
                 </div>
             </div>
         </header>
@@ -190,7 +171,7 @@
         <!-- Вкладка: Задания -->
         <main id="view-tasks" class="view active">
             <h2 class="section-title">Доступные задания</h2>
-            
+
             <div class="tasks-list">
                 <div class="task-card">
                     <div class="task-icon">📢</div>
@@ -234,9 +215,7 @@
 
             <div class="game-card">
                 <div class="game-header">
-                    <span class="game-badge">5 УРОВНЕЙ</span>
                     <h3>Выбери билет</h3>
-                    <p>Серый (5 ⭐), Синий (15 ⭐), Бордовый (35 ⭐), Фиолетовый (75 ⭐) и Золотой (150 ⭐).</p>
                 </div>
 
                 <div id="tickets-list" class="tickets-grid">
@@ -245,7 +224,7 @@
                             <div class="ticket-swatch" style="background: #8e929b;">🎫</div>
                             <div>
                                 <p class="ticket-title">Серый билет</p>
-                                <p class="ticket-sub">Стартовый тир • Призы до 25 ⭐</p>
+                                <p class="ticket-sub">Стартовый тир • Призы до 15 ⭐</p>
                             </div>
                         </div>
                         <span class="ticket-price-pill">5 ⭐</span>
@@ -256,7 +235,7 @@
                             <div class="ticket-swatch" style="background: #3b82f6;">🎫</div>
                             <div>
                                 <p class="ticket-title">Синий билет</p>
-                                <p class="ticket-sub">Базовый тир • Призы до 75 ⭐</p>
+                                <p class="ticket-sub">Базовый тир • Призы до 45 ⭐</p>
                             </div>
                         </div>
                         <span class="ticket-price-pill">15 ⭐</span>
@@ -267,7 +246,7 @@
                             <div class="ticket-swatch" style="background: #881337;">🎫</div>
                             <div>
                                 <p class="ticket-title">Бордовый билет</p>
-                                <p class="ticket-sub">Средний тир • Призы до 175 ⭐</p>
+                                <p class="ticket-sub">Средний тир • Призы до 105 ⭐</p>
                             </div>
                         </div>
                         <span class="ticket-price-pill">35 ⭐</span>
@@ -278,7 +257,7 @@
                             <div class="ticket-swatch" style="background: #9333ea;">🎫</div>
                             <div>
                                 <p class="ticket-title">Фиолетовый билет</p>
-                                <p class="ticket-sub">Высокий тир • Призы до 380 ⭐</p>
+                                <p class="ticket-sub">Высокий тир • Призы до 225 ⭐</p>
                             </div>
                         </div>
                         <span class="ticket-price-pill">75 ⭐</span>
@@ -289,7 +268,7 @@
                             <div class="ticket-swatch" style="background: #eab308; color: #111827;">👑</div>
                             <div>
                                 <p class="ticket-title">Золотой билет</p>
-                                <p class="ticket-sub">Максимум • Призы до 800 ⭐</p>
+                                <p class="ticket-sub">Максимум • Призы до 450 ⭐</p>
                             </div>
                         </div>
                         <span class="ticket-price-pill">150 ⭐</span>
@@ -299,7 +278,6 @@
                 <div id="ticket-stage" class="ticket-stage">
                     <span id="stage-badge" class="ticket-stage-badge">СЕРЫЙ БИЛЕТ • 5 ⭐</span>
                     <div id="stage-title" class="ticket-stage-title">Готов к открытию</div>
-                    <p id="stage-prizes" class="ticket-stage-prizes">Возможные выигрыши: 3 ⭐, 6 ⭐, 12 ⭐, 25 ⭐</p>
                 </div>
 
                 <button id="open-ticket-btn" class="spin-action-btn" onclick="openSelectedTicket()">Открыть Серый билет (5 ⭐)</button>
@@ -335,6 +313,6 @@
         </main>
     </div>
 
-    <script src="script.js?v=15"></script>
+    <script src="script.js?v=16"></script>
 </body>
 </html>
