@@ -55,6 +55,7 @@ document.addEventListener("DOMContentLoaded", () => {
         avatarEl.textContent = firstName.charAt(0).toUpperCase();
     }
 
+    backToGamesHub();
     updateTicketPreview(selectedTicketId);
     renderTicketsCounter();
     loadBalance();
@@ -64,6 +65,37 @@ function renderTicketsCounter() {
     const el = document.getElementById("tickets-balance-count");
     if (el) {
         el.textContent = `🎫 ${ticketsOpenedCount}`;
+    }
+}
+
+function openSubGame(gameKey) {
+    if (isOpeningTicket) return;
+
+    const hub = document.getElementById("games-hub");
+    if (hub) hub.style.display = "none";
+
+    document.querySelectorAll('[id^="subgame-"]').forEach(el => {
+        el.style.display = "none";
+    });
+
+    const target = document.getElementById(`subgame-${gameKey}`);
+    if (target) target.style.display = "block";
+
+    if (tg.HapticFeedback) {
+        tg.HapticFeedback.impactOccurred("light");
+    }
+}
+
+function backToGamesHub() {
+    document.querySelectorAll('[id^="subgame-"]').forEach(el => {
+        el.style.display = "none";
+    });
+
+    const hub = document.getElementById("games-hub");
+    if (hub) hub.style.display = "block";
+
+    if (tg.HapticFeedback) {
+        tg.HapticFeedback.impactOccurred("light");
     }
 }
 
@@ -88,6 +120,7 @@ function switchTab(tabName) {
     } else if (tabName === "games") {
         tabGames.classList.add("active");
         viewGames.classList.add("active");
+        backToGamesHub();
     } else {
         tabProfile.classList.add("active");
         viewProfile.classList.add("active");
