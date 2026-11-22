@@ -2,14 +2,13 @@ import asyncio
 import os
 import random
 import time
-from contextlib import asynccontextmanager
 from typing import Optional
 from urllib.parse import urlparse
 
 import aiohttp
 import psycopg2
 from fastapi import FastAPI, HTTPException
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -21,6 +20,8 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 ADMIN_ID = 7449913629
 
 TG_TIMEOUT = aiohttp.ClientTimeout(total=6)
+AVATAR_CACHE: dict[int, tuple[float, bytes, str]] = {}
+AVATAR_CACHE_TTL = 300.0
 
 # Курс перевода бонусных звёзд в игровые (1.0 = 1:1, 0.8 = -20% комиссия)
 BONUS_TO_GAME_RATE = 1.0
@@ -145,45 +146,47 @@ class AsyncRequestGuard:
         for k in stale:
             del self._last_hit[k]
 
-    @asynccontextmanager
-    async def protect(
-        self,
-        user_id: int,
-        bucket: str = "wallet",
-        min_interval: float | None = None,
-        acquire_timeout: float = 0.15,
-    ):
-        now = time.monotonic()
-        interval = self._min_interval if min_interval is None else min_interval
-        key = (int(user_id), bucket)
+    async def protect(self, user_id: int, bucket: str = "wallet", min_interval: float | None = None, acquire_timeout: float = 0.15):
+        class _GuardContext:
+            def __init__(self, outer: "AsyncRequestGuard"):
+                self._outer = outer
+                self._acquired = False
+                self._key: tuple[int, str] | None = None
 
-        async with self._lock:
-            await self._cleanup_stale(now)
+            async def __aenter__(self):
+                now = time.monotonic()
+                interval = self._outer._min_interval if min_interval is None else min_interval
+                key = (int(user_id), bucket)
 
-            if key in self._in_flight:
-                yield False, "Предыдущий запрос ещё обрабатывается"
-                return
+                async with self._outer._lock:
+                    await self._outer._cleanup_stale(now)
 
-            prev = self._last_hit.get(key, 0.0)
-            if now - prev < interval:
-                yield False, "Слишком частые запросы, подожди секунду"
-                return
+                    if key in self._outer._in_flight:
+                        return False, "Предыдущий запрос ещё обрабатывается"
 
-            try:
-                await asyncio.wait_for(self._semaphore.acquire(), timeout=acquire_timeout)
-            except asyncio.TimeoutError:
-                yield False, "Сервер сейчас загружен, попробуй через секунду"
-                return
+                    prev = self._outer._last_hit.get(key, 0.0)
+                    if now - prev < interval:
+                        return False, "Слишком частые запросы, подожди секунду"
 
-            self._in_flight.add(key)
-            self._last_hit[key] = now
+                    try:
+                        await asyncio.wait_for(self._outer._semaphore.acquire(), timeout=acquire_timeout)
+                    except asyncio.TimeoutError:
+                        return False, "Сервер сейчас загружен, попробуй через секунду"
 
-        try:
-            yield True, None
-        finally:
-            async with self._lock:
-                self._in_flight.discard(key)
-            self._semaphore.release()
+                    self._outer._in_flight.add(key)
+                    self._outer._last_hit[key] = now
+                    self._acquired = True
+                    self._key = key
+                    return True, None
+
+            async def __aexit__(self, exc_type, exc_val, exc_tb):
+                if self._acquired and self._key is not None:
+                    async with self._outer._lock:
+                        self._outer._in_flight.discard(self._key)
+                    self._outer._semaphore.release()
+                return False
+
+        return _GuardContext(self)
 
 
 guard = AsyncRequestGuard(max_concurrent=12, min_interval_sec=0.7)
@@ -539,6 +542,56 @@ class TelegramUpdate(BaseModel):
     pre_checkout_query: Optional[dict] = None
 
 
+@app.get("/api/avatar/{target_user_id}")
+async def api_get_avatar(target_user_id: int):
+    now = time.monotonic()
+    cached = AVATAR_CACHE.get(target_user_id)
+    if cached and (now - cached[0]) < AVATAR_CACHE_TTL:
+        return Response(content=cached[1], media_type=cached[2])
+
+    try:
+        async with aiohttp.ClientSession(timeout=TG_TIMEOUT) as session:
+            photos_url = f"https://api.telegram.org/bot{BOT_TOKEN}/getUserProfilePhotos"
+            async with session.get(photos_url, params={"user_id": target_user_id, "limit": 1}) as resp:
+                photos_data = await resp.json()
+
+            if not photos_data.get("ok"):
+                raise HTTPException(status_code=404, detail="Avatar not available")
+
+            photos = (photos_data.get("result") or {}).get("photos") or []
+            if not photos or not photos[0]:
+                raise HTTPException(status_code=404, detail="No avatar")
+
+            best_photo = photos[0][-1]
+            file_id = best_photo.get("file_id")
+            if not file_id:
+                raise HTTPException(status_code=404, detail="No file_id")
+
+            file_url = f"https://api.telegram.org/bot{BOT_TOKEN}/getFile"
+            async with session.get(file_url, params={"file_id": file_id}) as f_resp:
+                file_data = await f_resp.json()
+
+            file_path = ((file_data.get("result") or {}).get("file_path")) or ""
+            if not file_data.get("ok") or not file_path:
+                raise HTTPException(status_code=404, detail="No file_path")
+
+            download_url = f"https://api.telegram.org/file/bot{BOT_TOKEN}/{file_path}"
+            async with session.get(download_url) as img_resp:
+                if img_resp.status != 200:
+                    raise HTTPException(status_code=404, detail="Failed to download avatar")
+                img_bytes = await img_resp.read()
+                content_type = img_resp.headers.get("Content-Type", "image/jpeg")
+
+        AVATAR_CACHE[target_user_id] = (now, img_bytes, content_type)
+        return Response(content=img_bytes, media_type=content_type)
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Ошибка загрузки аватарки {target_user_id}: {e}")
+        raise HTTPException(status_code=404, detail="Avatar error")
+
+
 @app.get("/api/get_balance")
 def api_get_balance(user_id: int, username: str = "", first_name: str = ""):
     return get_or_create_user(user_id, username, first_name)
@@ -549,7 +602,7 @@ async def api_add_reward(data: ActionRequest):
     if data.reward < 0:
         raise HTTPException(status_code=400, detail="Награда не может быть отрицательной")
 
-    async with guard.protect(data.user_id, bucket="reward", min_interval=0.8) as (ok, reason):
+    async with await guard.protect(data.user_id, bucket="reward", min_interval=0.8) as (ok, reason):
         if not ok:
             return JSONResponse(status_code=429, content={"success": False, "error": reason})
 
@@ -567,7 +620,7 @@ async def api_transfer_bonus(data: BonusTransferRequest):
             detail=f"Минимальная сумма перевода: {MIN_BONUS_TRANSFER} бонусных ⭐",
         )
 
-    async with guard.protect(data.user_id, bucket="wallet", min_interval=0.8) as (ok, reason):
+    async with await guard.protect(data.user_id, bucket="wallet", min_interval=0.8) as (ok, reason):
         if not ok:
             return JSONResponse(status_code=429, content={"success": False, "error": reason})
 
@@ -615,7 +668,7 @@ async def api_open_ticket(data: OpenTicketRequest):
     ticket = TICKETS[ticket_key]
     price = int(ticket["price"])
 
-    async with guard.protect(data.user_id, bucket="wallet", min_interval=0.7) as (ok, reason):
+    async with await guard.protect(data.user_id, bucket="wallet", min_interval=0.7) as (ok, reason):
         if not ok:
             return JSONResponse(status_code=429, content={"success": False, "error": reason})
 
@@ -690,7 +743,7 @@ async def api_spin_wheel(data: SpinRequest):
     if not (1 <= bet <= 1000):
         raise HTTPException(status_code=400, detail="Неверная ставка")
 
-    async with guard.protect(data.user_id, bucket="wallet", min_interval=0.7) as (ok, reason):
+    async with await guard.protect(data.user_id, bucket="wallet", min_interval=0.7) as (ok, reason):
         if not ok:
             return JSONResponse(status_code=429, content={"success": False, "error": reason})
 
@@ -720,7 +773,7 @@ async def api_spin_wheel(data: SpinRequest):
 
 @app.post("/api/withdraw")
 async def api_withdraw(data: WithdrawRequest):
-    async with guard.protect(data.user_id, bucket="wallet", min_interval=1.0) as (ok, reason):
+    async with await guard.protect(data.user_id, bucket="wallet", min_interval=1.0) as (ok, reason):
         if not ok:
             return JSONResponse(status_code=429, content={"success": False, "error": reason})
 
