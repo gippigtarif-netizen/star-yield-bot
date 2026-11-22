@@ -267,6 +267,121 @@ body {
     color: #9ca3af;
 }
 
+/* Хаб подразделов внутри "Игры" */
+.games-hub-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.game-hub-card {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    background: rgba(24, 30, 44, 0.88);
+    border: 1.5px solid rgba(255, 255, 255, 0.08);
+    border-radius: 16px;
+    padding: 14px 16px;
+    color: #ffffff;
+    text-align: left;
+    cursor: pointer;
+    transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.game-hub-card:active {
+    transform: scale(0.98);
+    border-color: #22c55e;
+    box-shadow: 0 6px 18px rgba(34, 197, 94, 0.18);
+}
+
+.game-hub-card.is-locked {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+.game-hub-left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.game-hub-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 12px;
+    background: rgba(34, 197, 94, 0.14);
+    border: 1px solid rgba(34, 197, 94, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    flex-shrink: 0;
+}
+
+.game-hub-icon.muted {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.game-hub-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.game-hub-desc {
+    font-size: 12px;
+    color: #9ca3af;
+    margin-top: 2px;
+}
+
+.game-hub-arrow {
+    font-size: 22px;
+    font-weight: 700;
+    color: #4ade80;
+    line-height: 1;
+}
+
+.game-hub-badge {
+    font-size: 11px;
+    font-weight: 700;
+    color: #9ca3af;
+    background: rgba(255, 255, 255, 0.07);
+    padding: 4px 10px;
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.subgame-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.back-to-games-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 12px;
+    border-radius: 10px;
+    background: rgba(24, 30, 44, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    color: #f3f4f6;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.15s ease, border-color 0.2s ease;
+}
+
+.back-to-games-btn:active {
+    transform: scale(0.96);
+    border-color: #22c55e;
+}
+
 /* 5 цветных билетов */
 .game-card {
     background: rgba(24, 30, 44, 0.85);
@@ -301,6 +416,58 @@ body {
 .game-header p {
     font-size: 12px;
     color: #9ca3af;
+}
+
+.tickets-top-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.tickets-top-bar h3 {
+    font-size: 17px;
+    font-weight: 700;
+}
+
+.tickets-wallet-box {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(11, 15, 25, 0.92);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    padding: 5px 6px 5px 10px;
+}
+
+.tickets-wallet-count {
+    font-size: 13px;
+    font-weight: 800;
+    color: #fde047;
+    white-space: nowrap;
+}
+
+.tickets-plus-btn {
+    width: 26px;
+    height: 26px;
+    border: none;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #22c55e, #16a34a);
+    color: #ffffff;
+    font-size: 17px;
+    font-weight: 800;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 3px 10px rgba(34, 197, 94, 0.45);
+    transition: transform 0.15s ease;
+}
+
+.tickets-plus-btn:active {
+    transform: scale(0.92);
 }
 
 .tickets-grid {
