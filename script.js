@@ -2,44 +2,10 @@ const tg = window.Telegram.WebApp;
 tg.ready();
 tg.expand();
 
-if (typeof tg.requestFullscreen === "function") {
-    try {
-        tg.requestFullscreen();
-    } catch (e) {
-        console.log("Fullscreen недоступен в этом клиенте:", e);
-    }
-}
-
 const user = tg.initDataUnsafe?.user || {};
 const userId = user.id || 123456789;
 const username = user.username || "";
 const firstName = user.first_name || "Игрок";
-
-const TG_STAR_SVG = `
-<svg class="tg-star-icon" viewBox="0 0 24 24" aria-hidden="true">
-  <defs>
-    <linearGradient id="tgStarGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#ffe066" />
-      <stop offset="50%" stop-color="#fab005" />
-      <stop offset="100%" stop-color="#f08c00" />
-    </linearGradient>
-  </defs>
-  <path fill="url(#tgStarGrad)" d="M12 2.2l2.92 6.08 6.68.93-4.86 4.66 1.18 6.64L12 17.32l-5.92 3.19 1.18-6.64L2.4 9.21l6.68-.93L12 2.2z"/>
-</svg>
-`.trim();
-
-function formatStarsText(text) {
-    return String(text ?? "").replaceAll("⭐", TG_STAR_SVG);
-}
-
-function hydrateStarIcons(root = document) {
-    root.querySelectorAll("[data-star-icon]").forEach(el => {
-        if (!el.dataset.hydrated) {
-            el.innerHTML = TG_STAR_SVG;
-            el.dataset.hydrated = "1";
-        }
-    });
-}
 
 const TICKET_UI = {
     gray: {
@@ -85,6 +51,11 @@ function loadUserAvatar(avatarEl, fallbackLetter) {
 
     const img = document.createElement("img");
     img.alt = "Аватар";
+    img.style.width = "52px";
+    img.style.height = "52px";
+    img.style.objectFit = "cover";
+    img.style.borderRadius = "50%";
+    img.style.display = "block";
     img.src = `/api/avatar/${encodeURIComponent(userId)}?t=${Date.now()}`;
 
     img.onload = () => {
@@ -109,7 +80,6 @@ document.addEventListener("DOMContentLoaded", () => {
         loadUserAvatar(avatarEl, fallbackLetter);
     }
 
-    hydrateStarIcons(document);
     backToGamesHub();
     updateTicketPreview(selectedTicketId);
     renderTicketsCounter();
@@ -119,7 +89,7 @@ document.addEventListener("DOMContentLoaded", () => {
 function renderTicketsCounter() {
     const el = document.getElementById("tickets-balance-count");
     if (el) {
-        el.innerHTML = `🎫 ${ticketsOpenedCount}`;
+        el.textContent = `🎫 ${ticketsOpenedCount}`;
     }
 }
 
@@ -238,14 +208,14 @@ function updateTicketPreview(ticketId) {
     const stageEl = document.getElementById("ticket-stage");
 
     if (badgeEl) {
-        badgeEl.innerHTML = `${info.name.toUpperCase()} • ${info.price} ${TG_STAR_SVG}`;
+        badgeEl.textContent = `${info.name.toUpperCase()} • ${info.price} ⭐`;
         badgeEl.style.border = `1px solid ${info.color}`;
     }
     if (titleEl && !isOpeningTicket) {
         titleEl.textContent = "Готов к открытию";
     }
     if (openBtn) {
-        openBtn.innerHTML = `Открыть ${info.name} (${info.price} ${TG_STAR_SVG})`;
+        openBtn.textContent = `Открыть ${info.name} (${info.price} ⭐)`;
     }
     if (stageEl) {
         stageEl.style.borderColor = info.color;
@@ -295,7 +265,7 @@ function openTicketShopModal() {
 
     box.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-            <div style="font-weight:700; font-size:16px;">🎫 Выбор билета (${gameBal} ${TG_STAR_SVG})</div>
+            <div style="font-weight:700; font-size:16px;">🎫 Выбор билета (${gameBal} ⭐)</div>
             <button id="close-ticket-shop-btn" style="background:#2a303c; color:#fff; border:none; border-radius:8px; padding:4px 10px; cursor:pointer;">✕</button>
         </div>
         <div id="ticket-shop-list"></div>
@@ -321,7 +291,7 @@ function openTicketShopModal() {
         `;
         btn.innerHTML = `
             <span>${info.name}</span>
-            <span style="color:#fde047; display:inline-flex; align-items:center; gap:4px;">${info.price} ${TG_STAR_SVG}</span>
+            <span style="color:#fde047;">${info.price} ⭐</span>
         `;
         btn.onclick = () => {
             const targetCard = document.querySelector(`.ticket-item[data-ticket="${info.id}"]`);
@@ -442,8 +412,8 @@ async function openSelectedTicket() {
 
     if (openBtn) openBtn.disabled = true;
     if (stageEl) stageEl.classList.add("opening");
-    if (stageTitleEl) stageTitleEl.innerHTML = `Списываем ${ticketInfo.price} ${TG_STAR_SVG}...`;
-    if (statusEl) statusEl.innerHTML = `Списываем ${ticketInfo.price} ${TG_STAR_SVG} за ${ticketInfo.name}...`;
+    if (stageTitleEl) stageTitleEl.textContent = `Списываем ${ticketInfo.price} ⭐...`;
+    if (statusEl) statusEl.textContent = `Списываем ${ticketInfo.price} ⭐ за ${ticketInfo.name}...`;
 
     let resultData = null;
     try {
@@ -465,7 +435,7 @@ async function openSelectedTicket() {
             if (stageEl) stageEl.classList.remove("opening");
             if (stageTitleEl) stageTitleEl.textContent = "Готов к открытию";
             const errText = resultData.error || "Ошибка открытия билета";
-            if (statusEl) statusEl.innerHTML = formatStarsText(errText);
+            if (statusEl) statusEl.textContent = errText;
             if (tg.showAlert) tg.showAlert(errText);
             return;
         }
@@ -478,6 +448,7 @@ async function openSelectedTicket() {
         return;
     }
 
+    // 1 этап: сначала списание стоимости билета
     ticketsOpenedCount += 1;
     renderTicketsCounter();
 
@@ -489,34 +460,33 @@ async function openSelectedTicket() {
         gameBalEl.textContent = balanceAfterSpend;
     }
     if (stageTitleEl) {
-        stageTitleEl.innerHTML = `Списано ${ticketInfo.price} ${TG_STAR_SVG} • Открываем...`;
+        stageTitleEl.textContent = `Списано ${ticketInfo.price} ⭐ • Открываем...`;
     }
     if (statusEl) {
-        statusEl.innerHTML = `-${ticketInfo.price} ${TG_STAR_SVG} списано. Проверяем билет...`;
+        statusEl.textContent = `-${ticketInfo.price} ⭐ списано. Проверяем билет...`;
     }
 
     if (tg.HapticFeedback) {
         tg.HapticFeedback.impactOccurred("medium");
     }
 
+    // 2 этап: затем начисление награды / показ результата
     setTimeout(() => {
         isOpeningTicket = false;
         if (openBtn) openBtn.disabled = false;
         if (stageEl) stageEl.classList.remove("opening");
         renderBalances(resultData);
 
-        const formattedLabel = formatStarsText(resultData.label);
-
         if (resultData.won) {
-            if (stageTitleEl) stageTitleEl.innerHTML = `Начислено +${resultData.prize} ${TG_STAR_SVG} (${formattedLabel})`;
+            if (stageTitleEl) stageTitleEl.textContent = `Начислено +${resultData.prize} ⭐ (${resultData.label})`;
             if (statusEl) {
-                statusEl.innerHTML = `🎉 Списано -${ticketInfo.price} ${TG_STAR_SVG} → начислено +${resultData.prize} ${TG_STAR_SVG} (${formattedLabel})!`;
+                statusEl.textContent = `🎉 Списано -${ticketInfo.price} ⭐ → начислено +${resultData.prize} ⭐ (${resultData.label})!`;
             }
             if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("success");
         } else {
             if (stageTitleEl) stageTitleEl.textContent = "Пусто";
             if (statusEl) {
-                statusEl.innerHTML = `😢 Списано -${ticketInfo.price} ${TG_STAR_SVG}, приз не выпал. Попробуй ещё раз!`;
+                statusEl.textContent = `😢 Списано -${ticketInfo.price} ⭐, приз не выпал. Попробуй ещё раз!`;
             }
             if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("error");
         }
@@ -584,7 +554,7 @@ async function openGiftWithdrawModal(gameBal) {
 
     box.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-            <div style="font-weight:700; font-size:16px;">🎁 Вывод подарком (${gameBal} ${TG_STAR_SVG})</div>
+            <div style="font-weight:700; font-size:16px;">🎁 Вывод подарком (${gameBal} ⭐)</div>
             <button id="close-gift-modal-btn" style="background:#2a303c; color:#fff; border:none; border-radius:8px; padding:4px 10px; cursor:pointer;">✕</button>
         </div>
         <div id="gifts-list-container" style="color:#aaa; font-size:14px;">Загружаем подарки Telegram...</div>
@@ -614,7 +584,7 @@ async function openGiftWithdrawModal(gameBal) {
             .sort((a, b) => (a.star_count || 0) - (b.star_count || 0));
 
         if (!available.length) {
-            container.innerHTML = `<div>Сейчас нет подарков от 15 ${TG_STAR_SVG}.</div>`;
+            container.innerHTML = `<div>Сейчас нет подарков от 15 ⭐.</div>`;
             return;
         }
 
@@ -638,7 +608,7 @@ async function openGiftWithdrawModal(gameBal) {
             `;
             item.innerHTML = `
                 <span>${label}</span>
-                <strong style="display:inline-flex; align-items:center; gap:4px;">${price} ${TG_STAR_SVG}</strong>
+                <strong>${price} ⭐</strong>
             `;
             if (canAfford) {
                 item.onclick = () => submitGiftWithdraw(giftId, price);
