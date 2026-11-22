@@ -1,5 +1,8 @@
+import asyncio
 import os
 import random
+import time
+from contextlib import asynccontextmanager
 from typing import Optional
 from urllib.parse import urlparse
 
@@ -16,6 +19,8 @@ BOT_TOKEN = os.getenv("BOT_TOKEN", "9187717570:AAFe52G8d-aVNkwFet3tr9yw9deRqFrDG
 WEBAPP_URL = "https://star-yield-bot.onrender.com"
 DATABASE_URL = os.getenv("DATABASE_URL")
 ADMIN_ID = 7449913629
+
+TG_TIMEOUT = aiohttp.ClientTimeout(total=6)
 
 # Курс перевода бонусных звёзд в игровые (1.0 = 1:1, 0.8 = -20% комиссия)
 BONUS_TO_GAME_RATE = 1.0
@@ -113,6 +118,75 @@ GIFT_EMOJI_NAMES = {
     "💎": "Алмаз",
     "🚀": "Ракета",
 }
+
+
+class AsyncRequestGuard:
+    """
+    Защита от:
+    - параллельных запросов по одному user_id и бакету;
+    - кликеров/спама с одного аккаунта (min_interval_sec);
+    - резкого наплыва множества пользователей (семафор одновременных операций).
+    """
+
+    def __init__(self, max_concurrent: int = 12, min_interval_sec: float = 0.7):
+        self._semaphore = asyncio.Semaphore(max_concurrent)
+        self._lock = asyncio.Lock()
+        self._last_hit: dict[tuple[int, str], float] = {}
+        self._in_flight: set[tuple[int, str]] = set()
+        self._min_interval = min_interval_sec
+        self._counter = 0
+
+    async def _cleanup_stale(self, now: float) -> None:
+        self._counter += 1
+        if self._counter % 500 != 0:
+            return
+        ttl = max(self._min_interval * 15, 15.0)
+        stale = [k for k, ts in self._last_hit.items() if now - ts > ttl]
+        for k in stale:
+            del self._last_hit[k]
+
+    @asynccontextmanager
+    async def protect(
+        self,
+        user_id: int,
+        bucket: str = "wallet",
+        min_interval: float | None = None,
+        acquire_timeout: float = 0.15,
+    ):
+        now = time.monotonic()
+        interval = self._min_interval if min_interval is None else min_interval
+        key = (int(user_id), bucket)
+
+        async with self._lock:
+            await self._cleanup_stale(now)
+
+            if key in self._in_flight:
+                yield False, "Предыдущий запрос ещё обрабатывается"
+                return
+
+            prev = self._last_hit.get(key, 0.0)
+            if now - prev < interval:
+                yield False, "Слишком частые запросы, подожди секунду"
+                return
+
+            try:
+                await asyncio.wait_for(self._semaphore.acquire(), timeout=acquire_timeout)
+            except asyncio.TimeoutError:
+                yield False, "Сервер сейчас загружен, попробуй через секунду"
+                return
+
+            self._in_flight.add(key)
+            self._last_hit[key] = now
+
+        try:
+            yield True, None
+        finally:
+            async with self._lock:
+                self._in_flight.discard(key)
+            self._semaphore.release()
+
+
+guard = AsyncRequestGuard(max_concurrent=12, min_interval_sec=0.7)
 
 
 def format_gift_name(gift: dict, index: int) -> str:
@@ -274,10 +348,67 @@ def update_balances(user_id: int, game_diff: int = 0, bonus_diff: int = 0):
     return {"game_balance": int(row[0] or 0), "bonus_balance": int(row[1] or 0)}
 
 
+def try_spend_balances(user_id: int, game_spend: int = 0, bonus_spend: int = 0) -> Optional[dict]:
+    """
+    Атомарно списывает game_spend и/или bonus_spend, только если хватает средств.
+    Возвращает новый словарь балансов или None, если звёзд недостаточно.
+    """
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    ph = "%s" if DATABASE_URL else "?"
+
+    try:
+        cursor.execute(
+            f"""
+            UPDATE users
+            SET game_balance = game_balance - {ph},
+                bonus_balance = bonus_balance - {ph}
+            WHERE user_id = {ph}
+              AND game_balance >= {ph}
+              AND bonus_balance >= {ph}
+            RETURNING game_balance, bonus_balance
+            """,
+            (game_spend, bonus_spend, user_id, game_spend, bonus_spend),
+        )
+        row = cursor.fetchone()
+        conn.commit()
+    except Exception:
+        cursor.execute(
+            f"""
+            UPDATE users
+            SET game_balance = game_balance - {ph},
+                bonus_balance = bonus_balance - {ph}
+            WHERE user_id = {ph}
+              AND game_balance >= {ph}
+              AND bonus_balance >= {ph}
+            """,
+            (game_spend, bonus_spend, user_id, game_spend, bonus_spend),
+        )
+        updated = cursor.rowcount
+        conn.commit()
+        if not updated:
+            cursor.close()
+            conn.close()
+            return None
+        cursor.execute(
+            f"SELECT game_balance, bonus_balance FROM users WHERE user_id = {ph}",
+            (user_id,),
+        )
+        row = cursor.fetchone()
+
+    cursor.close()
+    conn.close()
+
+    if not row:
+        return None
+
+    return {"game_balance": int(row[0] or 0), "bonus_balance": int(row[1] or 0)}
+
+
 async def send_telegram_message(chat_id: int, text: str):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     payload = {"chat_id": chat_id, "text": text}
-    async with aiohttp.ClientSession() as session:
+    async with aiohttp.ClientSession(timeout=TG_TIMEOUT) as session:
         async with session.post(url, json=payload) as resp:
             pass
 
@@ -285,7 +416,7 @@ async def send_telegram_message(chat_id: int, text: str):
 async def send_telegram_gift(user_id: int, gift_id: str):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendGift"
     payload = {"user_id": user_id, "gift_id": gift_id}
-    async with aiohttp.ClientSession() as session:
+    async with aiohttp.ClientSession(timeout=TG_TIMEOUT) as session:
         async with session.post(url, json=payload) as response:
             res_data = await response.json()
             if res_data.get("ok"):
@@ -322,7 +453,7 @@ async def refund_real_stars(user_id: int) -> dict:
 
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/refundStarPayment"
 
-    async with aiohttp.ClientSession() as session:
+    async with aiohttp.ClientSession(timeout=TG_TIMEOUT) as session:
         for row_id, charge_id, total_amount in rows:
             if not charge_id:
                 errors.append(f"Платёж #{row_id}: отсутствует telegram_payment_charge_id")
@@ -414,15 +545,21 @@ def api_get_balance(user_id: int, username: str = "", first_name: str = ""):
 
 
 @app.post("/api/add_reward")
-def api_add_reward(data: ActionRequest):
+async def api_add_reward(data: ActionRequest):
     if data.reward < 0:
         raise HTTPException(status_code=400, detail="Награда не может быть отрицательной")
-    balances = update_balances(data.user_id, bonus_diff=data.reward)
-    return {"success": True, **balances}
+
+    async with guard.protect(data.user_id, bucket="reward", min_interval=0.8) as (ok, reason):
+        if not ok:
+            return JSONResponse(status_code=429, content={"success": False, "error": reason})
+
+        get_or_create_user(data.user_id, data.username, data.first_name)
+        balances = update_balances(data.user_id, bonus_diff=data.reward)
+        return {"success": True, **balances}
 
 
 @app.post("/api/transfer_bonus")
-def api_transfer_bonus(data: BonusTransferRequest):
+async def api_transfer_bonus(data: BonusTransferRequest):
     """Односторонний перевод: bonus_balance -> game_balance (обратный перевод запрещён)."""
     if data.amount < MIN_BONUS_TRANSFER:
         raise HTTPException(
@@ -430,31 +567,26 @@ def api_transfer_bonus(data: BonusTransferRequest):
             detail=f"Минимальная сумма перевода: {MIN_BONUS_TRANSFER} бонусных ⭐",
         )
 
-    user_data = get_or_create_user(data.user_id, data.username, data.first_name)
-    if user_data["bonus_balance"] < data.amount:
-        return {
-            "success": False,
-            "error": f"Недостаточно бонусных звёзд! Доступно: {user_data['bonus_balance']} ⭐",
-        }
+    async with guard.protect(data.user_id, bucket="wallet", min_interval=0.8) as (ok, reason):
+        if not ok:
+            return JSONResponse(status_code=429, content={"success": False, "error": reason})
 
-    game_received = int(data.amount * BONUS_TO_GAME_RATE)
-    if game_received <= 0:
-        return {
-            "success": False,
-            "error": "Сумма слишком мала для конвертации в игровой баланс",
-        }
+        get_or_create_user(data.user_id, data.username, data.first_name)
+        game_received = int(data.amount * BONUS_TO_GAME_RATE)
+        if game_received <= 0:
+            return {"success": False, "error": "Сумма слишком мала для конвертации в игровой баланс"}
 
-    balances = update_balances(
-        data.user_id,
-        game_diff=game_received,
-        bonus_diff=-data.amount,
-    )
-    return {
-        "success": True,
-        "spent_bonus": data.amount,
-        "received_game": game_received,
-        **balances,
-    }
+        spent = try_spend_balances(data.user_id, bonus_spend=data.amount)
+        if spent is None:
+            return {"success": False, "error": "Недостаточно бонусных звёзд!"}
+
+        balances = update_balances(data.user_id, game_diff=game_received)
+        return {
+            "success": True,
+            "spent_bonus": data.amount,
+            "received_game": game_received,
+            **balances,
+        }
 
 
 @app.get("/api/tickets")
@@ -475,7 +607,7 @@ def api_get_tickets():
 
 
 @app.post("/api/open_ticket")
-def api_open_ticket(data: OpenTicketRequest):
+async def api_open_ticket(data: OpenTicketRequest):
     ticket_key = (data.ticket_id or "").strip().lower()
     if ticket_key not in TICKETS:
         raise HTTPException(status_code=400, detail="Неизвестный тип билета")
@@ -483,34 +615,41 @@ def api_open_ticket(data: OpenTicketRequest):
     ticket = TICKETS[ticket_key]
     price = int(ticket["price"])
 
-    user_data = get_or_create_user(data.user_id, data.username, data.first_name)
-    if user_data["game_balance"] < price:
+    async with guard.protect(data.user_id, bucket="wallet", min_interval=0.7) as (ok, reason):
+        if not ok:
+            return JSONResponse(status_code=429, content={"success": False, "error": reason})
+
+        get_or_create_user(data.user_id, data.username, data.first_name)
+        after_spend = try_spend_balances(data.user_id, game_spend=price)
+        if after_spend is None:
+            return {
+                "success": False,
+                "error": f"Недостаточно звёзд на игровом балансе! Нужно {price} ⭐.",
+            }
+
+        reward_stars, label = roll_ticket_outcome(ticket_key)
+        balances = (
+            update_balances(data.user_id, game_diff=reward_stars)
+            if reward_stars > 0
+            else after_spend
+        )
+
         return {
-            "success": False,
-            "error": f"Недостаточно звёзд на игровом балансе! Нужно {price} ⭐, у вас {user_data['game_balance']} ⭐.",
+            "success": True,
+            "ticket_id": ticket_key,
+            "ticket_name": ticket["name"],
+            "price": price,
+            "won": reward_stars > 0,
+            "prize": reward_stars,
+            "label": label,
+            **balances,
         }
-
-    update_balances(data.user_id, game_diff=-price)
-
-    reward_stars, label = roll_ticket_outcome(ticket_key)
-    balances = update_balances(data.user_id, game_diff=reward_stars)
-
-    return {
-        "success": True,
-        "ticket_id": ticket_key,
-        "ticket_name": ticket["name"],
-        "price": price,
-        "won": reward_stars > 0,
-        "prize": reward_stars,
-        "label": label,
-        **balances,
-    }
 
 
 @app.get("/api/get_gifts")
 async def api_get_gifts():
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/getAvailableGifts"
-    async with aiohttp.ClientSession() as session:
+    async with aiohttp.ClientSession(timeout=TG_TIMEOUT) as session:
         async with session.get(url) as response:
             res = await response.json()
             if res.get("ok"):
@@ -537,7 +676,7 @@ async def api_create_invoice(data: InvoiceRequest):
         "prices": [{"label": "Звёзды Telegram", "amount": data.amount}],
     }
 
-    async with aiohttp.ClientSession() as session:
+    async with aiohttp.ClientSession(timeout=TG_TIMEOUT) as session:
         async with session.post(url, json=payload) as response:
             res = await response.json()
             if res.get("ok"):
@@ -546,71 +685,85 @@ async def api_create_invoice(data: InvoiceRequest):
 
 
 @app.post("/api/spin_wheel")
-def api_spin_wheel(data: SpinRequest):
+async def api_spin_wheel(data: SpinRequest):
     bet = data.bet
     if not (1 <= bet <= 1000):
         raise HTTPException(status_code=400, detail="Неверная ставка")
 
-    user_data = get_or_create_user(data.user_id, data.username, data.first_name)
-    if user_data["game_balance"] < bet:
-        return {"success": False, "error": "Недостаточно звёзд на балансе!"}
+    async with guard.protect(data.user_id, bucket="wallet", min_interval=0.7) as (ok, reason):
+        if not ok:
+            return JSONResponse(status_code=429, content={"success": False, "error": reason})
 
-    update_balances(data.user_id, game_diff=-bet)
+        get_or_create_user(data.user_id, data.username, data.first_name)
+        after_spend = try_spend_balances(data.user_id, game_spend=bet)
+        if after_spend is None:
+            return {"success": False, "error": "Недостаточно звёзд на балансе!"}
 
-    clamped = min(bet, 1000)
-    chance = min(0.00999 * (clamped / 1000) ** 0.7, 0.00999)
-    is_win = random.random() < chance
-    prize = 0
+        clamped = min(bet, 1000)
+        chance = min(0.00999 * (clamped / 1000) ** 0.7, 0.00999)
+        is_win = random.random() < chance
+        prize = 0
 
-    if is_win:
-        prize = bet * 2
-        balances = update_balances(data.user_id, game_diff=prize)
-    else:
-        balances = get_or_create_user(data.user_id, data.username, data.first_name)
+        if is_win:
+            prize = bet * 2
+            balances = update_balances(data.user_id, game_diff=prize)
+        else:
+            balances = after_spend
 
-    return {
-        "success": True,
-        "won": is_win,
-        "prize": prize,
-        **balances,
-    }
+        return {
+            "success": True,
+            "won": is_win,
+            "prize": prize,
+            **balances,
+        }
 
 
 @app.post("/api/withdraw")
 async def api_withdraw(data: WithdrawRequest):
-    user_data = get_or_create_user(data.user_id)
+    async with guard.protect(data.user_id, bucket="wallet", min_interval=1.0) as (ok, reason):
+        if not ok:
+            return JSONResponse(status_code=429, content={"success": False, "error": reason})
 
-    if data.type == "game":
-        game_bal = user_data["game_balance"]
+        get_or_create_user(data.user_id)
 
-        if data.amount < 15:
-            return {"success": False, "error": "Минимальная стоимость подарка для вывода: 15 ⭐"}
+        if data.type == "game":
+            if data.amount < 15:
+                return {"success": False, "error": "Минимальная стоимость подарка для вывода: 15 ⭐"}
 
-        if game_bal < data.amount:
-            return {"success": False, "error": f"Недостаточно звёзд! У вас {game_bal} ⭐, а нужно {data.amount} ⭐."}
+            if not data.gift_id:
+                return {"success": False, "error": "Выберите конкретный подарок для вывода!"}
 
-        if not data.gift_id:
-            return {"success": False, "error": "Выберите конкретный подарок для вывода!"}
+            new_balances = try_spend_balances(data.user_id, game_spend=data.amount)
+            if new_balances is None:
+                current = get_or_create_user(data.user_id)
+                return {
+                    "success": False,
+                    "error": f"Недостаточно звёзд! У вас {current['game_balance']} ⭐, а нужно {data.amount} ⭐.",
+                }
 
-        new_balances = update_balances(data.user_id, game_diff=-data.amount)
-        success_gift = await send_telegram_gift(data.user_id, data.gift_id)
+            success_gift = await send_telegram_gift(data.user_id, data.gift_id)
 
-        if success_gift:
+            if success_gift:
+                return {
+                    "success": True,
+                    "message": f"Подарок стоимостью {data.amount} ⭐ успешно отправлен вам в чат!",
+                    **new_balances,
+                }
+
+            restored = update_balances(data.user_id, game_diff=data.amount)
             return {
-                "success": True,
-                "message": f"Подарок стоимостью {data.amount} ⭐ успешно отправлен вам в чат!",
-                **new_balances,
+                "success": False,
+                "error": "Ошибка отправки подарка. Проверьте баланс кассы бота.",
+                **restored,
             }
 
-        update_balances(data.user_id, game_diff=data.amount)
-        return {"success": False, "error": "Ошибка отправки подарка. Проверьте баланс кассы бота."}
+        if data.type == "bonus":
+            current = get_or_create_user(data.user_id)
+            if current["bonus_balance"] < 500:
+                return {"success": False, "error": "Минимальный вывод с Бонусного баланса: 500 ⭐."}
+            return {"success": True, "message": "Заявка на вывод бонусного баланса принята!"}
 
-    if data.type == "bonus":
-        if user_data["bonus_balance"] < 500:
-            return {"success": False, "error": "Минимальный вывод с Бонусного баланса: 500 ⭐."}
-        return {"success": True, "message": "Заявка на вывод бонусного баланса принята!"}
-
-    return {"success": False, "error": "Неизвестный тип баланса"}
+        return {"success": False, "error": "Неизвестный тип баланса"}
 
 
 @app.post("/webhook")
@@ -620,7 +773,7 @@ async def telegram_webhook(update: TelegramUpdate):
         if query_id:
             url = f"https://api.telegram.org/bot{BOT_TOKEN}/answerPreCheckoutQuery"
             payload = {"pre_checkout_query_id": query_id, "ok": True}
-            async with aiohttp.ClientSession() as session:
+            async with aiohttp.ClientSession(timeout=TG_TIMEOUT) as session:
                 async with session.post(url, json=payload) as resp:
                     pass
         return {"ok": True}
@@ -679,7 +832,7 @@ async def telegram_webhook(update: TelegramUpdate):
                 ]
             },
         }
-        async with aiohttp.ClientSession() as session:
+        async with aiohttp.ClientSession(timeout=TG_TIMEOUT) as session:
             async with session.post(url, json=payload) as resp:
                 pass
 
