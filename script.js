@@ -2,6 +2,14 @@ const tg = window.Telegram.WebApp;
 tg.ready();
 tg.expand();
 
+if (typeof tg.requestFullscreen === "function") {
+    try {
+        tg.requestFullscreen();
+    } catch (e) {
+        console.log("Fullscreen недоступен в этом клиенте:", e);
+    }
+}
+
 const user = tg.initDataUnsafe?.user || {};
 const userId = user.id || 123456789;
 const username = user.username || "";
@@ -46,13 +54,33 @@ let isOpeningTicket = false;
 let isWithdrawingGift = false;
 let isTransferringBonus = false;
 
+function loadUserAvatar(avatarEl, fallbackLetter) {
+    if (!avatarEl) return;
+
+    const img = document.createElement("img");
+    img.alt = "Аватар";
+    img.src = `/api/avatar/${encodeURIComponent(userId)}?t=${Date.now()}`;
+
+    img.onload = () => {
+        avatarEl.textContent = "";
+        avatarEl.appendChild(img);
+    };
+
+    img.onerror = () => {
+        avatarEl.innerHTML = "";
+        avatarEl.textContent = fallbackLetter;
+    };
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     const nameEl = document.getElementById("user-name");
     const avatarEl = document.getElementById("user-avatar");
+    const fallbackLetter = firstName ? firstName.charAt(0).toUpperCase() : "👤";
 
     if (nameEl) nameEl.textContent = firstName;
-    if (avatarEl && firstName) {
-        avatarEl.textContent = firstName.charAt(0).toUpperCase();
+    if (avatarEl) {
+        avatarEl.textContent = fallbackLetter;
+        loadUserAvatar(avatarEl, fallbackLetter);
     }
 
     backToGamesHub();
@@ -383,11 +411,12 @@ async function openSelectedTicket() {
     const statusEl = document.getElementById("game-status");
     const stageEl = document.getElementById("ticket-stage");
     const stageTitleEl = document.getElementById("stage-title");
+    const gameBalEl = document.getElementById("game-balance-amount");
 
     if (openBtn) openBtn.disabled = true;
     if (stageEl) stageEl.classList.add("opening");
-    if (stageTitleEl) stageTitleEl.textContent = "Стираем защитный слой...";
-    if (statusEl) statusEl.textContent = `Открываем ${ticketInfo.name}...`;
+    if (stageTitleEl) stageTitleEl.textContent = `Списываем ${ticketInfo.price} ⭐...`;
+    if (statusEl) statusEl.textContent = `Списываем ${ticketInfo.price} ⭐ за ${ticketInfo.name}...`;
 
     let resultData = null;
     try {
@@ -422,18 +451,29 @@ async function openSelectedTicket() {
         return;
     }
 
+    // 1 этап: сначала списание стоимости билета
     ticketsOpenedCount += 1;
     renderTicketsCounter();
 
-    const balanceAfterBuy = resultData.won
-        ? Math.max(0, resultData.game_balance - resultData.prize)
-        : resultData.game_balance;
-    document.getElementById("game-balance-amount").textContent = balanceAfterBuy;
+    const balanceAfterSpend = resultData.won
+        ? Math.max(0, Number(resultData.game_balance) - Number(resultData.prize))
+        : Number(resultData.game_balance);
+
+    if (gameBalEl) {
+        gameBalEl.textContent = balanceAfterSpend;
+    }
+    if (stageTitleEl) {
+        stageTitleEl.textContent = `Списано ${ticketInfo.price} ⭐ • Открываем...`;
+    }
+    if (statusEl) {
+        statusEl.textContent = `-${ticketInfo.price} ⭐ списано. Проверяем билет...`;
+    }
 
     if (tg.HapticFeedback) {
         tg.HapticFeedback.impactOccurred("medium");
     }
 
+    // 2 этап: затем начисление награды / показ результата
     setTimeout(() => {
         isOpeningTicket = false;
         if (openBtn) openBtn.disabled = false;
@@ -441,15 +481,15 @@ async function openSelectedTicket() {
         renderBalances(resultData);
 
         if (resultData.won) {
-            if (stageTitleEl) stageTitleEl.textContent = `Выигрыш: ${resultData.label}`;
+            if (stageTitleEl) stageTitleEl.textContent = `Начислено +${resultData.prize} ⭐ (${resultData.label})`;
             if (statusEl) {
-                statusEl.textContent = `🎉 ${ticketInfo.name}: выпало ${resultData.label} (+${resultData.prize} ⭐)!`;
+                statusEl.textContent = `🎉 Списано -${ticketInfo.price} ⭐ → начислено +${resultData.prize} ⭐ (${resultData.label})!`;
             }
             if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("success");
         } else {
             if (stageTitleEl) stageTitleEl.textContent = "Пусто";
             if (statusEl) {
-                statusEl.textContent = `😢 ${ticketInfo.name}: пусто (-${ticketInfo.price} ⭐). Попробуй ещё раз!`;
+                statusEl.textContent = `😢 Списано -${ticketInfo.price} ⭐, приз не выпал. Попробуй ещё раз!`;
             }
             if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("error");
         }
