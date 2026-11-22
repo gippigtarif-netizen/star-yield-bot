@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>StarYield</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="style.css?v=18">
+    <link rel="stylesheet" href="style.css?v=19">
     <style>
         .dual-balances {
             display: grid;
@@ -44,6 +44,107 @@
             font-weight: 700;
             cursor: pointer;
         }
+
+        /* Подразделы внутри "Игры" */
+        .games-hub-list {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 12px;
+            margin-top: 10px;
+        }
+        .game-hub-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            width: 100%;
+            padding: 14px 16px;
+            border-radius: 16px;
+            background: rgba(17, 24, 39, 0.88);
+            border: 1.5px solid rgba(255, 255, 255, 0.12);
+            color: #fff;
+            text-align: left;
+            cursor: pointer;
+            transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+        .game-hub-card:active {
+            transform: scale(0.98);
+            border-color: #22c55e;
+        }
+        .game-hub-card.is-locked {
+            opacity: 0.55;
+            cursor: not-allowed;
+        }
+        .game-hub-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .game-hub-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: rgba(34, 197, 94, 0.16);
+            border: 1px solid rgba(34, 197, 94, 0.35);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            flex-shrink: 0;
+        }
+        .game-hub-icon.muted {
+            background: rgba(255, 255, 255, 0.06);
+            border-color: rgba(255, 255, 255, 0.12);
+        }
+        .game-hub-title {
+            font-size: 15px;
+            font-weight: 800;
+            margin: 0;
+        }
+        .game-hub-desc {
+            font-size: 12px;
+            color: #9ca3af;
+            margin: 3px 0 0 0;
+        }
+        .game-hub-arrow {
+            font-size: 22px;
+            font-weight: 700;
+            color: #22c55e;
+            line-height: 1;
+        }
+        .game-hub-badge {
+            font-size: 11px;
+            font-weight: 700;
+            color: #9ca3af;
+            background: rgba(255, 255, 255, 0.07);
+            padding: 4px 8px;
+            border-radius: 999px;
+            white-space: nowrap;
+        }
+        .subgame-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        .back-to-games-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 7px 12px;
+            border-radius: 10px;
+            background: rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            color: #fff;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+        }
+        .back-to-games-btn:active {
+            transform: scale(0.96);
+        }
+
         .tickets-top-bar {
             display: flex;
             align-items: center;
@@ -211,7 +312,7 @@
         <!-- Переключатель вкладок -->
         <nav class="tabs">
             <button id="tab-tasks" class="tab-btn active" onclick="switchTab('tasks')">Задания</button>
-            <button id="tab-games" class="tab-btn" onclick="switchTab('games')">Билеты</button>
+            <button id="tab-games" class="tab-btn" onclick="switchTab('games')">Игры</button>
             <button id="tab-profile" class="tab-btn" onclick="switchTab('profile')">Профиль</button>
         </nav>
 
@@ -256,83 +357,118 @@
             </div>
         </main>
 
-        <!-- Вкладка: 5 цветных билетов -->
+        <!-- Вкладка: Игры (хаб подразделов + внутренняя игра "Билеты") -->
         <main id="view-games" class="view">
-            <h2 class="section-title">Цветные билеты</h2>
+            <!-- Хаб с подразделами игр -->
+            <div id="games-hub">
+                <h2 class="section-title">Игры</h2>
 
-            <div class="game-card">
-                <div class="tickets-top-bar">
-                    <h3>Выбери билет</h3>
-                    <div class="tickets-wallet-box">
-                        <span id="tickets-balance-count" class="tickets-wallet-count">🎫 0</span>
-                        <button type="button" class="tickets-plus-btn" title="Купить билет" onclick="openTicketShopModal()">+</button>
+                <div class="games-hub-list">
+                    <button type="button" class="game-hub-card" onclick="openSubGame('tickets')">
+                        <div class="game-hub-left">
+                            <div class="game-hub-icon">🎫</div>
+                            <div>
+                                <p class="game-hub-title">Билеты</p>
+                                <p class="game-hub-desc">5 цветных тиров • Призы до 450 ⭐</p>
+                            </div>
+                        </div>
+                        <span class="game-hub-arrow">›</span>
+                    </button>
+
+                    <button type="button" class="game-hub-card is-locked" disabled>
+                        <div class="game-hub-left">
+                            <div class="game-hub-icon muted">🎯</div>
+                            <div>
+                                <p class="game-hub-title">Рулетка на выбывание</p>
+                                <p class="game-hub-desc">Многопользовательский режим</p>
+                            </div>
+                        </div>
+                        <span class="game-hub-badge">Скоро</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Подраздел: Игра с билетами -->
+            <div id="subgame-tickets" style="display: none;">
+                <div class="subgame-header">
+                    <button type="button" class="back-to-games-btn" onclick="backToGamesHub()">← Игры</button>
+                    <h2 class="section-title" style="margin: 0;">Билеты</h2>
+                </div>
+
+                <div class="game-card">
+                    <div class="tickets-top-bar">
+                        <h3>Выбери билет</h3>
+                        <div class="tickets-wallet-box">
+                            <span id="tickets-balance-count" class="tickets-wallet-count">🎫 0</span>
+                            <button type="button" class="tickets-plus-btn" title="Купить билет" onclick="openTicketShopModal()">+</button>
+                        </div>
                     </div>
+
+                    <div id="tickets-list" class="tickets-grid">
+                        <button type="button" class="ticket-item active" data-ticket="gray" onclick="selectTicket('gray', this)">
+                            <div class="ticket-left">
+                                <div class="ticket-swatch" style="background: #8e929b;">🎫</div>
+                                <div>
+                                    <p class="ticket-title">Серый билет</p>
+                                    <p class="ticket-sub">Стартовый тир • Призы до 15 ⭐</p>
+                                </div>
+                            </div>
+                            <span class="ticket-price-pill">5 ⭐</span>
+                        </button>
+
+                        <button type="button" class="ticket-item" data-ticket="blue" onclick="selectTicket('blue', this)">
+                            <div class="ticket-left">
+                                <div class="ticket-swatch" style="background: #3b82f6;">🎫</div>
+                                <div>
+                                    <p class="ticket-title">Синий билет</p>
+                                    <p class="ticket-sub">Базовый тир • Призы до 45 ⭐</p>
+                                </div>
+                            </div>
+                            <span class="ticket-price-pill">15 ⭐</span>
+                        </button>
+
+                        <button type="button" class="ticket-item" data-ticket="burgundy" onclick="selectTicket('burgundy', this)">
+                            <div class="ticket-left">
+                                <div class="ticket-swatch" style="background: #881337;">🎫</div>
+                                <div>
+                                    <p class="ticket-title">Бордовый билет</p>
+                                    <p class="ticket-sub">Средний тир • Призы до 105 ⭐</p>
+                                </div>
+                            </div>
+                            <span class="ticket-price-pill">35 ⭐</span>
+                        </button>
+
+                        <button type="button" class="ticket-item" data-ticket="purple" onclick="selectTicket('purple', this)">
+                            <div class="ticket-left">
+                                <div class="ticket-swatch" style="background: #9333ea;">🎫</div>
+                                <div>
+                                    <p class="ticket-title">Фиолетовый билет</p>
+                                    <p class="ticket-sub">Высокий тир • Призы до 225 ⭐</p>
+                                </div>
+                            </div>
+                            <span class="ticket-price-pill">75 ⭐</span>
+                        </button>
+
+                        <button type="button" class="ticket-item" data-ticket="gold" onclick="selectTicket('gold', this)">
+                            <div class="ticket-left">
+                                <div class="ticket-swatch" style="background: #eab308; color: #111827;">👑</div>
+                                <div>
+                                    <p class="ticket-title">Золотой билет</p>
+                                    <p class="ticket-sub">Максимум • Призы до 450 ⭐</p>
+                                </div>
+                            </div>
+                            <span class="ticket-price-pill">150 ⭐</span>
+                        </button>
+                    </div>
+
+                    <div id="ticket-stage" class="ticket-stage">
+                        <span id="stage-badge" class="ticket-stage-badge">СЕРЫЙ БИЛЕТ • 5 ⭐</span>
+                        <div id="stage-title" class="ticket-stage-title">Готов к открытию</div>
+                    </div>
+
+                    <button id="open-ticket-btn" class="spin-action-btn" onclick="openSelectedTicket()">Открыть Серый билет (5 ⭐)</button>
+                    <div id="game-status" class="game-status">Выбери цветной билет и нажми открыть</div>
                 </div>
-
-                <div id="tickets-list" class="tickets-grid">
-                    <button type="button" class="ticket-item active" data-ticket="gray" onclick="selectTicket('gray', this)">
-                        <div class="ticket-left">
-                            <div class="ticket-swatch" style="background: #8e929b;">🎫</div>
-                            <div>
-                                <p class="ticket-title">Серый билет</p>
-                                <p class="ticket-sub">Стартовый тир • Призы до 15 ⭐</p>
-                            </div>
-                        </div>
-                        <span class="ticket-price-pill">5 ⭐</span>
-                    </button>
-
-                    <button type="button" class="ticket-item" data-ticket="blue" onclick="selectTicket('blue', this)">
-                        <div class="ticket-left">
-                            <div class="ticket-swatch" style="background: #3b82f6;">🎫</div>
-                            <div>
-                                <p class="ticket-title">Синий билет</p>
-                                <p class="ticket-sub">Базовый тир • Призы до 45 ⭐</p>
-                            </div>
-                        </div>
-                        <span class="ticket-price-pill">15 ⭐</span>
-                    </button>
-
-                    <button type="button" class="ticket-item" data-ticket="burgundy" onclick="selectTicket('burgundy', this)">
-                        <div class="ticket-left">
-                            <div class="ticket-swatch" style="background: #881337;">🎫</div>
-                            <div>
-                                <p class="ticket-title">Бордовый билет</p>
-                                <p class="ticket-sub">Средний тир • Призы до 105 ⭐</p>
-                            </div>
-                        </div>
-                        <span class="ticket-price-pill">35 ⭐</span>
-                    </button>
-
-                    <button type="button" class="ticket-item" data-ticket="purple" onclick="selectTicket('purple', this)">
-                        <div class="ticket-left">
-                            <div class="ticket-swatch" style="background: #9333ea;">🎫</div>
-                            <div>
-                                <p class="ticket-title">Фиолетовый билет</p>
-                                <p class="ticket-sub">Высокий тир • Призы до 225 ⭐</p>
-                            </div>
-                        </div>
-                        <span class="ticket-price-pill">75 ⭐</span>
-                    </button>
-
-                    <button type="button" class="ticket-item" data-ticket="gold" onclick="selectTicket('gold', this)">
-                        <div class="ticket-left">
-                            <div class="ticket-swatch" style="background: #eab308; color: #111827;">👑</div>
-                            <div>
-                                <p class="ticket-title">Золотой билет</p>
-                                <p class="ticket-sub">Максимум • Призы до 450 ⭐</p>
-                            </div>
-                        </div>
-                        <span class="ticket-price-pill">150 ⭐</span>
-                    </button>
-                </div>
-
-                <div id="ticket-stage" class="ticket-stage">
-                    <span id="stage-badge" class="ticket-stage-badge">СЕРЫЙ БИЛЕТ • 5 ⭐</span>
-                    <div id="stage-title" class="ticket-stage-title">Готов к открытию</div>
-                </div>
-
-                <button id="open-ticket-btn" class="spin-action-btn" onclick="openSelectedTicket()">Открыть Серый билет (5 ⭐)</button>
-                <div id="game-status" class="game-status">Выбери цветной билет и нажми открыть</div>
             </div>
         </main>
 
@@ -364,6 +500,38 @@
         </main>
     </div>
 
-    <script src="script.js?v=18"></script>
+    <script>
+        function openSubGame(gameKey) {
+            const hub = document.getElementById('games-hub');
+            if (hub) hub.style.display = 'none';
+
+            document.querySelectorAll('[id^="subgame-"]').forEach(el => {
+                el.style.display = 'none';
+            });
+
+            const target = document.getElementById(`subgame-${gameKey}`);
+            if (target) target.style.display = 'block';
+        }
+
+        function backToGamesHub() {
+            document.querySelectorAll('[id^="subgame-"]').forEach(el => {
+                el.style.display = 'none';
+            });
+
+            const hub = document.getElementById('games-hub');
+            if (hub) hub.style.display = 'block';
+        }
+
+        // Если в script.js уже есть свой switchTab, можно повесить сброс хаба при клике на вкладку "Игры"
+        document.addEventListener('DOMContentLoaded', () => {
+            const gamesTabBtn = document.getElementById('tab-games');
+            if (gamesTabBtn) {
+                gamesTabBtn.addEventListener('click', () => {
+                    backToGamesHub();
+                });
+            }
+        });
+    </script>
+    <script src="script.js?v=19"></script>
 </body>
 </html>
