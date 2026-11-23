@@ -33,6 +33,30 @@ function hydrateStarIcons(root = document) {
     });
 }
 
+function replaceEmojiStarsInDom(root = document.body) {
+    if (!root) return;
+
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const textNodes = [];
+    let current;
+    while ((current = walker.nextNode())) {
+        if (current.nodeValue && current.nodeValue.includes("⭐")) {
+            const parentTag = current.parentElement?.tagName;
+            if (parentTag !== "SCRIPT" && parentTag !== "STYLE") {
+                textNodes.push(current);
+            }
+        }
+    }
+
+    textNodes.forEach(node => {
+        const parent = node.parentElement;
+        if (!parent) return;
+        const span = document.createElement("span");
+        span.innerHTML = node.nodeValue.replaceAll("⭐", TG_STAR_SVG);
+        parent.replaceChild(span, node);
+    });
+}
+
 const TICKET_UI = {
     gray: {
         id: "gray",
@@ -97,6 +121,15 @@ function loadUserAvatar(avatarEl, fallbackLetter) {
 
 function removePromoBanners() {
     document.querySelectorAll(".promo-banner").forEach(el => el.remove());
+    document.querySelectorAll("div, section").forEach(el => {
+        if (
+            el.children.length <= 2 &&
+            el.textContent &&
+            el.textContent.includes("Больше заданий скоро!")
+        ) {
+            el.remove();
+        }
+    });
 }
 
 function clearTicketFooterStatus() {
@@ -105,6 +138,26 @@ function clearTicketFooterStatus() {
         statusEl.textContent = "";
         statusEl.style.display = "none";
     }
+}
+
+function styleLastProfileButtonGreen() {
+    document.querySelectorAll("button").forEach(btn => {
+        if (btn.textContent && btn.textContent.includes("Вывести с Бонусного баланса")) {
+            btn.style.background = "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)";
+            btn.style.border = "2px solid #4ade80";
+            btn.style.color = "#ffffff";
+            btn.style.boxShadow = "0 4px 15px rgba(34, 197, 94, 0.3)";
+        }
+    });
+}
+
+function applyUiFixes() {
+    removePromoBanners();
+    clearTicketFooterStatus();
+    hydrateStarIcons(document);
+    replaceEmojiStarsInDom(document.body);
+    renderTicketsStarsCounter(currentGameBalance);
+    styleLastProfileButtonGreen();
 }
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -118,12 +171,9 @@ document.addEventListener("DOMContentLoaded", () => {
         loadUserAvatar(avatarEl, fallbackLetter);
     }
 
-    removePromoBanners();
-    clearTicketFooterStatus();
-    hydrateStarIcons(document);
     backToGamesHub();
     updateTicketPreview(selectedTicketId);
-    renderTicketsStarsCounter(currentGameBalance);
+    applyUiFixes();
     loadBalance();
 });
 
@@ -149,8 +199,7 @@ function openSubGame(gameKey) {
     const target = document.getElementById(`subgame-${gameKey}`);
     if (target) target.style.display = "block";
 
-    clearTicketFooterStatus();
-    renderTicketsStarsCounter(currentGameBalance);
+    applyUiFixes();
 
     if (tg.HapticFeedback) {
         tg.HapticFeedback.impactOccurred("light");
@@ -188,7 +237,6 @@ function switchTab(tabName) {
     if (tabName === "tasks") {
         tabTasks.classList.add("active");
         viewTasks.classList.add("active");
-        removePromoBanners();
     } else if (tabName === "games") {
         tabGames.classList.add("active");
         viewGames.classList.add("active");
@@ -197,6 +245,8 @@ function switchTab(tabName) {
         tabProfile.classList.add("active");
         viewProfile.classList.add("active");
     }
+
+    applyUiFixes();
 
     if (tg.HapticFeedback) {
         tg.HapticFeedback.impactOccurred("light");
@@ -222,6 +272,7 @@ async function loadBalance() {
         const response = await fetch(`/api/get_balance?${params.toString()}`);
         const data = await response.json();
         renderBalances(data);
+        applyUiFixes();
     } catch (error) {
         console.error("Ошибка загрузки баланса:", error);
     }
@@ -238,6 +289,7 @@ async function completeTask(reward, btnElement) {
         const data = await response.json();
         if (data.success) {
             renderBalances(data);
+            applyUiFixes();
             if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("success");
         }
     } catch (error) {
@@ -388,6 +440,7 @@ async function openBonusTransferPrompt() {
         const data = await res.json();
         if (res.ok && data.success) {
             renderBalances(data);
+            applyUiFixes();
             if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("success");
             const msg = `Переведено ${data.spent_bonus} бонусных ⭐ → +${data.received_game} игровых ⭐.`;
             if (tg.showAlert) tg.showAlert(msg);
@@ -527,6 +580,7 @@ async function openSelectedTicket() {
             if (stageTitleEl) stageTitleEl.textContent = "Пусто";
             if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("error");
         }
+        applyUiFixes();
     }, 900);
 }
 
@@ -554,6 +608,7 @@ async function submitGiftWithdraw(giftId, amount) {
 
         if (data.success) {
             renderBalances(data);
+            applyUiFixes();
             closeGiftModal();
             if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("success");
             if (tg.showAlert) tg.showAlert(data.message || `Подарок за ${amount} ⭐ отправлен!`);
