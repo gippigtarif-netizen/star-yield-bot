@@ -110,10 +110,11 @@ body {
 }
 
 .tg-star-icon {
-    display: inline-block;
-    width: 1em;
-    height: 1em;
-    vertical-align: -0.14em;
+    display: inline-block !important;
+    width: 16px !important;
+    height: 16px !important;
+    min-width: 16px !important;
+    vertical-align: -2px !important;
     flex-shrink: 0;
 }
 
@@ -121,7 +122,7 @@ body {
     margin-top: 8px;
     width: 100%;
     padding: 7px 8px;
-    border: 2px solid #4ade80;
+    border: 3px solid #4ade80 !important;
     border-radius: 10px;
     background: linear-gradient(135deg, #22c55e, #16a34a);
     color: #fff;
@@ -135,7 +136,7 @@ body {
     margin-top: 8px;
     width: 100%;
     padding: 7px 8px;
-    border: 2px solid rgba(168, 85, 247, 0.55);
+    border: 3px solid rgba(168, 85, 247, 0.65) !important;
     border-radius: 10px;
     background: rgba(147, 51, 234, 0.22);
     color: #e9d5ff;
@@ -247,7 +248,7 @@ body {
 .reward-btn {
     background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
     color: #111827;
-    border: 2px solid #fde047;
+    border: 3px solid #fde047 !important;
     border-radius: 12px;
     padding: 9px 14px;
     font-size: 13px;
@@ -274,7 +275,7 @@ body {
     justify-content: space-between;
     gap: 12px;
     background: rgba(24, 30, 44, 0.88);
-    border: 2px solid rgba(255, 255, 255, 0.1);
+    border: 3px solid rgba(255, 255, 255, 0.14) !important;
     border-radius: 16px;
     padding: 14px 16px;
     color: #ffffff;
@@ -305,7 +306,7 @@ body {
     height: 44px;
     border-radius: 12px;
     background: rgba(34, 197, 94, 0.14);
-    border: 2px solid rgba(34, 197, 94, 0.35);
+    border: 3px solid rgba(34, 197, 94, 0.4) !important;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -362,7 +363,7 @@ body {
     padding: 8px 12px;
     border-radius: 10px;
     background: rgba(24, 30, 44, 0.9);
-    border: 2px solid rgba(255, 255, 255, 0.15);
+    border: 3px solid rgba(255, 255, 255, 0.18) !important;
     color: #f3f4f6;
     font-size: 13px;
     font-weight: 700;
@@ -429,7 +430,7 @@ body {
     align-items: center;
     gap: 8px;
     background: rgba(11, 15, 25, 0.92);
-    border: 2px solid rgba(255, 255, 255, 0.14);
+    border: 3px solid rgba(255, 255, 255, 0.16) !important;
     border-radius: 12px;
     padding: 5px 6px 5px 10px;
 }
@@ -444,7 +445,7 @@ body {
 .tickets-plus-btn {
     width: 26px;
     height: 26px;
-    border: 2px solid #4ade80;
+    border: 3px solid #4ade80 !important;
     border-radius: 8px;
     background: linear-gradient(135deg, #22c55e, #16a34a);
     color: #ffffff;
@@ -478,7 +479,7 @@ body {
     padding: 11px 13px;
     border-radius: 14px;
     background: rgba(17, 24, 39, 0.88);
-    border: 2px solid rgba(255, 255, 255, 0.14);
+    border: 3px solid rgba(255, 255, 255, 0.16) !important;
     color: #ffffff;
     cursor: pointer;
     transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease;
@@ -537,7 +538,7 @@ body {
     padding: 16px 14px;
     border-radius: 16px;
     background: rgba(15, 23, 42, 0.8);
-    border: 2px dashed rgba(255, 255, 255, 0.22);
+    border: 3px dashed rgba(255, 255, 255, 0.24) !important;
     text-align: center;
     transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
 }
@@ -575,7 +576,7 @@ body {
     width: 100%;
     background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
     color: #ffffff;
-    border: 2px solid #4ade80;
+    border: 3px solid #4ade80 !important;
     border-radius: 14px;
     padding: 13px;
     font-size: 15px;
@@ -615,7 +616,7 @@ body {
     width: 52px;
     height: 52px;
     border-radius: 50%;
-    border: 2px solid #4ade80;
+    border: 3px solid #4ade80 !important;
     background: linear-gradient(135deg, #22c55e, #15803d);
     display: flex;
     align-items: center;
@@ -650,7 +651,7 @@ body {
 
 .action-btn {
     width: 100%;
-    border: 2px solid #4ade80;
+    border: 3px solid #4ade80 !important;
     border-radius: 14px;
     padding: 15px;
     font-size: 15px;
@@ -660,7 +661,7 @@ body {
 
 .withdraw-btn {
     background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-    border: 2px solid #4ade80;
+    border: 3px solid #4ade80 !important;
     color: #ffffff;
     box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
 }
@@ -668,7 +669,7 @@ body {
 .promote-btn,
 .withdraw-bonus-btn {
     background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
-    border: 2px solid #4ade80;
+    border: 3px solid #4ade80 !important;
     color: #ffffff;
     box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
 }
