@@ -8,28 +8,18 @@ const username = user.username || "";
 const firstName = user.first_name || "Игрок";
 
 const TG_STAR_SVG = `
-<svg class="tg-star-icon" viewBox="0 0 24 24" aria-hidden="true">
-  <defs>
-    <linearGradient id="tgStarGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#ffe066" />
-      <stop offset="50%" stop-color="#fab005" />
-      <stop offset="100%" stop-color="#f08c00" />
-    </linearGradient>
-  </defs>
-  <path fill="url(#tgStarGrad)" d="M12 2.2l2.92 6.08 6.68.93-4.86 4.66 1.18 6.64L12 17.32l-5.92 3.19 1.18-6.64L2.4 9.21l6.68-.93L12 2.2z"/>
+<svg class="tg-star-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="width:16px;height:16px;min-width:16px;display:inline-block;vertical-align:-2px;">
+  <path fill="#fbbf24" d="M12 2.2l2.92 6.08 6.68.93-4.86 4.66 1.18 6.64L12 17.32l-5.92 3.19 1.18-6.64L2.4 9.21l6.68-.93L12 2.2z"/>
 </svg>
 `.trim();
 
 function formatStarsText(text) {
-    return String(text ?? "").replaceAll("⭐", TG_STAR_SVG);
+    return String(text ?? "").replaceAll("⭐", TG_STAR_SVG).replaceAll("⭐️", TG_STAR_SVG);
 }
 
 function hydrateStarIcons(root = document) {
     root.querySelectorAll("[data-star-icon]").forEach(el => {
-        if (!el.dataset.hydrated) {
-            el.innerHTML = TG_STAR_SVG;
-            el.dataset.hydrated = "1";
-        }
+        el.innerHTML = TG_STAR_SVG;
     });
 }
 
@@ -40,7 +30,7 @@ function replaceEmojiStarsInDom(root = document.body) {
     const textNodes = [];
     let current;
     while ((current = walker.nextNode())) {
-        if (current.nodeValue && current.nodeValue.includes("⭐")) {
+        if (current.nodeValue && (current.nodeValue.includes("⭐") || current.nodeValue.includes("⭐️"))) {
             const parentTag = current.parentElement?.tagName;
             if (parentTag !== "SCRIPT" && parentTag !== "STYLE") {
                 textNodes.push(current);
@@ -52,7 +42,7 @@ function replaceEmojiStarsInDom(root = document.body) {
         const parent = node.parentElement;
         if (!parent) return;
         const span = document.createElement("span");
-        span.innerHTML = node.nodeValue.replaceAll("⭐", TG_STAR_SVG);
+        span.innerHTML = formatStarsText(node.nodeValue);
         parent.replaceChild(span, node);
     });
 }
@@ -144,7 +134,7 @@ function styleLastProfileButtonGreen() {
     document.querySelectorAll("button").forEach(btn => {
         if (btn.textContent && btn.textContent.includes("Вывести с Бонусного баланса")) {
             btn.style.background = "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)";
-            btn.style.border = "2px solid #4ade80";
+            btn.style.border = "3px solid #4ade80";
             btn.style.color = "#ffffff";
             btn.style.boxShadow = "0 4px 15px rgba(34, 197, 94, 0.3)";
         }
@@ -308,7 +298,7 @@ function updateTicketPreview(ticketId) {
 
     if (badgeEl) {
         badgeEl.innerHTML = `${info.name.toUpperCase()} • ${info.price} ${TG_STAR_SVG}`;
-        badgeEl.style.border = `2px solid ${info.color}`;
+        badgeEl.style.border = `3px solid ${info.color}`;
     }
     if (titleEl && !isOpeningTicket) {
         titleEl.textContent = "Готов к открытию";
@@ -327,7 +317,7 @@ function selectTicket(ticketId, btnElement) {
 
     document.querySelectorAll(".ticket-item").forEach(item => {
         item.classList.remove("active");
-        item.style.borderColor = "rgba(255, 255, 255, 0.14)";
+        item.style.borderColor = "rgba(255, 255, 255, 0.16)";
     });
 
     if (btnElement) {
@@ -346,60 +336,9 @@ function closeTicketShopModal() {
 
 function openTicketShopModal() {
     closeTicketShopModal();
-
-    const gameBal = parseInt(document.getElementById("game-balance-amount").textContent) || 0;
-    const modal = document.createElement("div");
-    modal.id = "ticket-shop-modal";
-    modal.style.cssText = `
-        position: fixed; inset: 0; background: rgba(0,0,0,0.75);
-        display: flex; align-items: center; justify-content: center;
-        z-index: 9999; padding: 16px;
-    `;
-
-    const box = document.createElement("div");
-    box.style.cssText = `
-        width: 100%; max-width: 380px; background: #181c24; color: #fff;
-        border-radius: 16px; padding: 16px; border: 2px solid rgba(255,255,255,0.12);
-    `;
-
-    box.innerHTML = `
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-            <div style="font-weight:700; font-size:16px; display:inline-flex; align-items:center; gap:6px;">🎫 Выбор билета (${gameBal} ${TG_STAR_SVG})</div>
-            <button id="close-ticket-shop-btn" style="background:#2a303c; color:#fff; border:2px solid rgba(255,255,255,0.15); border-radius:8px; padding:4px 10px; cursor:pointer;">✕</button>
-        </div>
-        <div id="ticket-shop-list"></div>
-    `;
-
-    modal.appendChild(box);
-    document.body.appendChild(modal);
-
-    document.getElementById("close-ticket-shop-btn").onclick = closeTicketShopModal;
-    modal.addEventListener("click", (e) => {
-        if (e.target === modal) closeTicketShopModal();
-    });
-
-    const listEl = document.getElementById("ticket-shop-list");
-    Object.values(TICKET_UI).forEach(info => {
-        const btn = document.createElement("button");
-        btn.type = "button";
-        btn.style.cssText = `
-            width: 100%; display: flex; justify-content: space-between; align-items: center;
-            padding: 11px 12px; margin-bottom: 8px; border-radius: 12px;
-            border: 2px solid ${info.color}; background: #1f2633; color: #fff;
-            cursor: pointer; font-size: 14px; font-weight: 700;
-        `;
-        btn.innerHTML = `
-            <span>${info.name}</span>
-            <span style="color:#fde047; display:inline-flex; align-items:center; gap:4px;">${info.price} ${TG_STAR_SVG}</span>
-        `;
-        btn.onclick = () => {
-            const targetCard = document.querySelector(`.ticket-item[data-ticket="${info.id}"]`);
-            selectTicket(info.id, targetCard || null);
-            closeTicketShopModal();
-            openSelectedTicket();
-        };
-        listEl.appendChild(btn);
-    });
+    if (typeof openTopupPrompt === "function") {
+        openTopupPrompt();
+    }
 }
 
 async function openBonusTransferPrompt() {
@@ -641,13 +580,13 @@ async function openGiftWithdrawModal(gameBal) {
     box.style.cssText = `
         width: 100%; max-width: 380px; max-height: 80vh; overflow-y: auto;
         background: #181c24; color: #fff; border-radius: 16px; padding: 16px;
-        border: 2px solid rgba(255,255,255,0.12);
+        border: 3px solid rgba(255,255,255,0.14);
     `;
 
     box.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
             <div style="font-weight:700; font-size:16px; display:inline-flex; align-items:center; gap:6px;">🎁 Вывод подарком (${gameBal} ${TG_STAR_SVG})</div>
-            <button id="close-gift-modal-btn" style="background:#2a303c; color:#fff; border:2px solid rgba(255,255,255,0.15); border-radius:8px; padding:4px 10px; cursor:pointer;">✕</button>
+            <button id="close-gift-modal-btn" style="background:#2a303c; color:#fff; border:3px solid rgba(255,255,255,0.18); border-radius:8px; padding:4px 10px; cursor:pointer;">✕</button>
         </div>
         <div id="gifts-list-container" style="color:#aaa; font-size:14px;">Загружаем подарки Telegram...</div>
     `;
@@ -693,7 +632,7 @@ async function openGiftWithdrawModal(gameBal) {
             item.style.cssText = `
                 width: 100%; display: flex; justify-content: space-between; align-items: center;
                 padding: 10px 12px; margin-bottom: 8px; border-radius: 12px;
-                border: 2px solid ${canAfford ? "rgba(76,175,80,0.5)" : "rgba(255,255,255,0.08)"};
+                border: 3px solid ${canAfford ? "rgba(76,175,80,0.6)" : "rgba(255,255,255,0.1)"};
                 background: ${canAfford ? "#222b38" : "#14171d"};
                 color: ${canAfford ? "#fff" : "#777"};
                 cursor: ${canAfford ? "pointer" : "not-allowed"}; font-size: 14px;
