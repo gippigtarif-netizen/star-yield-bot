@@ -7,6 +7,32 @@ const userId = user.id || 123456789;
 const username = user.username || "";
 const firstName = user.first_name || "Игрок";
 
+const TG_STAR_SVG = `
+<svg class="tg-star-icon" viewBox="0 0 24 24" aria-hidden="true">
+  <defs>
+    <linearGradient id="tgStarGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffe066" />
+      <stop offset="50%" stop-color="#fab005" />
+      <stop offset="100%" stop-color="#f08c00" />
+    </linearGradient>
+  </defs>
+  <path fill="url(#tgStarGrad)" d="M12 2.2l2.92 6.08 6.68.93-4.86 4.66 1.18 6.64L12 17.32l-5.92 3.19 1.18-6.64L2.4 9.21l6.68-.93L12 2.2z"/>
+</svg>
+`.trim();
+
+function formatStarsText(text) {
+    return String(text ?? "").replaceAll("⭐", TG_STAR_SVG);
+}
+
+function hydrateStarIcons(root = document) {
+    root.querySelectorAll("[data-star-icon]").forEach(el => {
+        if (!el.dataset.hydrated) {
+            el.innerHTML = TG_STAR_SVG;
+            el.dataset.hydrated = "1";
+        }
+    });
+}
+
 const TICKET_UI = {
     gray: {
         id: "gray",
@@ -41,7 +67,7 @@ const TICKET_UI = {
 };
 
 let selectedTicketId = "gray";
-let ticketsOpenedCount = 0;
+let currentGameBalance = 0;
 let isOpeningTicket = false;
 let isWithdrawingGift = false;
 let isTransferringBonus = false;
@@ -69,6 +95,18 @@ function loadUserAvatar(avatarEl, fallbackLetter) {
     };
 }
 
+function removePromoBanners() {
+    document.querySelectorAll(".promo-banner").forEach(el => el.remove());
+}
+
+function clearTicketFooterStatus() {
+    const statusEl = document.getElementById("game-status");
+    if (statusEl) {
+        statusEl.textContent = "";
+        statusEl.style.display = "none";
+    }
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     const nameEl = document.getElementById("user-name");
     const avatarEl = document.getElementById("user-avatar");
@@ -80,16 +118,21 @@ document.addEventListener("DOMContentLoaded", () => {
         loadUserAvatar(avatarEl, fallbackLetter);
     }
 
+    removePromoBanners();
+    clearTicketFooterStatus();
+    hydrateStarIcons(document);
     backToGamesHub();
     updateTicketPreview(selectedTicketId);
-    renderTicketsCounter();
+    renderTicketsStarsCounter(currentGameBalance);
     loadBalance();
 });
 
-function renderTicketsCounter() {
+function renderTicketsStarsCounter(amount = currentGameBalance) {
+    const safeVal = Math.max(0, Number(amount) || 0);
+    currentGameBalance = safeVal;
     const el = document.getElementById("tickets-balance-count");
     if (el) {
-        el.textContent = `🎫 ${ticketsOpenedCount}`;
+        el.innerHTML = `<span style="display:inline-flex; align-items:center; gap:4px;">${safeVal} ${TG_STAR_SVG}</span>`;
     }
 }
 
@@ -105,6 +148,9 @@ function openSubGame(gameKey) {
 
     const target = document.getElementById(`subgame-${gameKey}`);
     if (target) target.style.display = "block";
+
+    clearTicketFooterStatus();
+    renderTicketsStarsCounter(currentGameBalance);
 
     if (tg.HapticFeedback) {
         tg.HapticFeedback.impactOccurred("light");
@@ -142,6 +188,7 @@ function switchTab(tabName) {
     if (tabName === "tasks") {
         tabTasks.classList.add("active");
         viewTasks.classList.add("active");
+        removePromoBanners();
     } else if (tabName === "games") {
         tabGames.classList.add("active");
         viewGames.classList.add("active");
@@ -158,14 +205,14 @@ function switchTab(tabName) {
 
 function renderBalances(data) {
     if (data.game_balance !== undefined) {
-        document.getElementById("game-balance-amount").textContent = data.game_balance;
+        const gameVal = Number(data.game_balance) || 0;
+        const gameEl = document.getElementById("game-balance-amount");
+        if (gameEl) gameEl.textContent = gameVal;
+        renderTicketsStarsCounter(gameVal);
     }
     if (data.bonus_balance !== undefined) {
-        document.getElementById("bonus-balance-amount").textContent = data.bonus_balance;
-    }
-    if (data.tickets_count !== undefined) {
-        ticketsOpenedCount = Number(data.tickets_count) || 0;
-        renderTicketsCounter();
+        const bonusEl = document.getElementById("bonus-balance-amount");
+        if (bonusEl) bonusEl.textContent = data.bonus_balance;
     }
 }
 
@@ -208,14 +255,14 @@ function updateTicketPreview(ticketId) {
     const stageEl = document.getElementById("ticket-stage");
 
     if (badgeEl) {
-        badgeEl.textContent = `${info.name.toUpperCase()} • ${info.price} ⭐`;
-        badgeEl.style.border = `1px solid ${info.color}`;
+        badgeEl.innerHTML = `${info.name.toUpperCase()} • ${info.price} ${TG_STAR_SVG}`;
+        badgeEl.style.border = `2px solid ${info.color}`;
     }
     if (titleEl && !isOpeningTicket) {
         titleEl.textContent = "Готов к открытию";
     }
     if (openBtn) {
-        openBtn.textContent = `Открыть ${info.name} (${info.price} ⭐)`;
+        openBtn.innerHTML = `Открыть ${info.name} (${info.price} ${TG_STAR_SVG})`;
     }
     if (stageEl) {
         stageEl.style.borderColor = info.color;
@@ -228,7 +275,7 @@ function selectTicket(ticketId, btnElement) {
 
     document.querySelectorAll(".ticket-item").forEach(item => {
         item.classList.remove("active");
-        item.style.borderColor = "rgba(255, 255, 255, 0.12)";
+        item.style.borderColor = "rgba(255, 255, 255, 0.14)";
     });
 
     if (btnElement) {
@@ -260,13 +307,13 @@ function openTicketShopModal() {
     const box = document.createElement("div");
     box.style.cssText = `
         width: 100%; max-width: 380px; background: #181c24; color: #fff;
-        border-radius: 16px; padding: 16px; border: 1px solid rgba(255,255,255,0.12);
+        border-radius: 16px; padding: 16px; border: 2px solid rgba(255,255,255,0.12);
     `;
 
     box.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-            <div style="font-weight:700; font-size:16px;">🎫 Выбор билета (${gameBal} ⭐)</div>
-            <button id="close-ticket-shop-btn" style="background:#2a303c; color:#fff; border:none; border-radius:8px; padding:4px 10px; cursor:pointer;">✕</button>
+            <div style="font-weight:700; font-size:16px; display:inline-flex; align-items:center; gap:6px;">🎫 Выбор билета (${gameBal} ${TG_STAR_SVG})</div>
+            <button id="close-ticket-shop-btn" style="background:#2a303c; color:#fff; border:2px solid rgba(255,255,255,0.15); border-radius:8px; padding:4px 10px; cursor:pointer;">✕</button>
         </div>
         <div id="ticket-shop-list"></div>
     `;
@@ -286,12 +333,12 @@ function openTicketShopModal() {
         btn.style.cssText = `
             width: 100%; display: flex; justify-content: space-between; align-items: center;
             padding: 11px 12px; margin-bottom: 8px; border-radius: 12px;
-            border: 1px solid ${info.color}; background: #1f2633; color: #fff;
+            border: 2px solid ${info.color}; background: #1f2633; color: #fff;
             cursor: pointer; font-size: 14px; font-weight: 700;
         `;
         btn.innerHTML = `
             <span>${info.name}</span>
-            <span style="color:#fde047;">${info.price} ⭐</span>
+            <span style="color:#fde047; display:inline-flex; align-items:center; gap:4px;">${info.price} ${TG_STAR_SVG}</span>
         `;
         btn.onclick = () => {
             const targetCard = document.querySelector(`.ticket-item[data-ticket="${info.id}"]`);
@@ -404,16 +451,16 @@ async function openSelectedTicket() {
     }
 
     isOpeningTicket = true;
+    clearTicketFooterStatus();
+
     const openBtn = document.getElementById("open-ticket-btn");
-    const statusEl = document.getElementById("game-status");
     const stageEl = document.getElementById("ticket-stage");
     const stageTitleEl = document.getElementById("stage-title");
     const gameBalEl = document.getElementById("game-balance-amount");
 
     if (openBtn) openBtn.disabled = true;
     if (stageEl) stageEl.classList.add("opening");
-    if (stageTitleEl) stageTitleEl.textContent = `Списываем ${ticketInfo.price} ⭐...`;
-    if (statusEl) statusEl.textContent = `Списываем ${ticketInfo.price} ⭐ за ${ticketInfo.name}...`;
+    if (stageTitleEl) stageTitleEl.innerHTML = `Списываем ${ticketInfo.price} ${TG_STAR_SVG}...`;
 
     let resultData = null;
     try {
@@ -435,7 +482,6 @@ async function openSelectedTicket() {
             if (stageEl) stageEl.classList.remove("opening");
             if (stageTitleEl) stageTitleEl.textContent = "Готов к открытию";
             const errText = resultData.error || "Ошибка открытия билета";
-            if (statusEl) statusEl.textContent = errText;
             if (tg.showAlert) tg.showAlert(errText);
             return;
         }
@@ -444,14 +490,10 @@ async function openSelectedTicket() {
         if (openBtn) openBtn.disabled = false;
         if (stageEl) stageEl.classList.remove("opening");
         if (stageTitleEl) stageTitleEl.textContent = "Готов к открытию";
-        if (statusEl) statusEl.textContent = "Ошибка соединения с сервером";
         return;
     }
 
     // 1 этап: сначала списание стоимости билета
-    ticketsOpenedCount += 1;
-    renderTicketsCounter();
-
     const balanceAfterSpend = resultData.won
         ? Math.max(0, Number(resultData.game_balance) - Number(resultData.prize))
         : Number(resultData.game_balance);
@@ -459,11 +501,10 @@ async function openSelectedTicket() {
     if (gameBalEl) {
         gameBalEl.textContent = balanceAfterSpend;
     }
+    renderTicketsStarsCounter(balanceAfterSpend);
+
     if (stageTitleEl) {
-        stageTitleEl.textContent = `Списано ${ticketInfo.price} ⭐ • Открываем...`;
-    }
-    if (statusEl) {
-        statusEl.textContent = `-${ticketInfo.price} ⭐ списано. Проверяем билет...`;
+        stageTitleEl.innerHTML = `Списано ${ticketInfo.price} ${TG_STAR_SVG} • Открываем...`;
     }
 
     if (tg.HapticFeedback) {
@@ -477,17 +518,13 @@ async function openSelectedTicket() {
         if (stageEl) stageEl.classList.remove("opening");
         renderBalances(resultData);
 
+        const formattedLabel = formatStarsText(resultData.label);
+
         if (resultData.won) {
-            if (stageTitleEl) stageTitleEl.textContent = `Начислено +${resultData.prize} ⭐ (${resultData.label})`;
-            if (statusEl) {
-                statusEl.textContent = `🎉 Списано -${ticketInfo.price} ⭐ → начислено +${resultData.prize} ⭐ (${resultData.label})!`;
-            }
+            if (stageTitleEl) stageTitleEl.innerHTML = `Начислено +${resultData.prize} ${TG_STAR_SVG} (${formattedLabel})`;
             if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("success");
         } else {
             if (stageTitleEl) stageTitleEl.textContent = "Пусто";
-            if (statusEl) {
-                statusEl.textContent = `😢 Списано -${ticketInfo.price} ⭐, приз не выпал. Попробуй ещё раз!`;
-            }
             if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("error");
         }
     }, 900);
@@ -549,13 +586,13 @@ async function openGiftWithdrawModal(gameBal) {
     box.style.cssText = `
         width: 100%; max-width: 380px; max-height: 80vh; overflow-y: auto;
         background: #181c24; color: #fff; border-radius: 16px; padding: 16px;
-        border: 1px solid rgba(255,255,255,0.12);
+        border: 2px solid rgba(255,255,255,0.12);
     `;
 
     box.innerHTML = `
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-            <div style="font-weight:700; font-size:16px;">🎁 Вывод подарком (${gameBal} ⭐)</div>
-            <button id="close-gift-modal-btn" style="background:#2a303c; color:#fff; border:none; border-radius:8px; padding:4px 10px; cursor:pointer;">✕</button>
+            <div style="font-weight:700; font-size:16px; display:inline-flex; align-items:center; gap:6px;">🎁 Вывод подарком (${gameBal} ${TG_STAR_SVG})</div>
+            <button id="close-gift-modal-btn" style="background:#2a303c; color:#fff; border:2px solid rgba(255,255,255,0.15); border-radius:8px; padding:4px 10px; cursor:pointer;">✕</button>
         </div>
         <div id="gifts-list-container" style="color:#aaa; font-size:14px;">Загружаем подарки Telegram...</div>
     `;
@@ -584,7 +621,7 @@ async function openGiftWithdrawModal(gameBal) {
             .sort((a, b) => (a.star_count || 0) - (b.star_count || 0));
 
         if (!available.length) {
-            container.innerHTML = `<div>Сейчас нет подарков от 15 ⭐.</div>`;
+            container.innerHTML = `<div>Сейчас нет подарков от 15 ${TG_STAR_SVG}.</div>`;
             return;
         }
 
@@ -601,14 +638,14 @@ async function openGiftWithdrawModal(gameBal) {
             item.style.cssText = `
                 width: 100%; display: flex; justify-content: space-between; align-items: center;
                 padding: 10px 12px; margin-bottom: 8px; border-radius: 12px;
-                border: 1px solid ${canAfford ? "rgba(76,175,80,0.5)" : "rgba(255,255,255,0.08)"};
+                border: 2px solid ${canAfford ? "rgba(76,175,80,0.5)" : "rgba(255,255,255,0.08)"};
                 background: ${canAfford ? "#222b38" : "#14171d"};
                 color: ${canAfford ? "#fff" : "#777"};
                 cursor: ${canAfford ? "pointer" : "not-allowed"}; font-size: 14px;
             `;
             item.innerHTML = `
                 <span>${label}</span>
-                <strong>${price} ⭐</strong>
+                <strong style="display:inline-flex; align-items:center; gap:4px;">${price} ${TG_STAR_SVG}</strong>
             `;
             if (canAfford) {
                 item.onclick = () => submitGiftWithdraw(giftId, price);
