@@ -5,279 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>StarYield</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <link rel="stylesheet" href="style.css?v=19">
-    <style>
-        .dual-balances {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-            margin-top: 10px;
-        }
-        .sub-balance-card {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 14px;
-            padding: 12px;
-            text-align: center;
-        }
-        .sub-balance-label {
-            font-size: 11px;
-            color: #9ca3af;
-            margin: 0 0 4px 0;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        .sub-balance-val {
-            font-size: 20px;
-            font-weight: 800;
-            color: #fff;
-        }
-        .topup-mini-btn {
-            margin-top: 8px;
-            width: 100%;
-            padding: 6px 8px;
-            border: none;
-            border-radius: 8px;
-            background: linear-gradient(135deg, #22c55e, #16a34a);
-            color: #fff;
-            font-size: 12px;
-            font-weight: 700;
-            cursor: pointer;
-        }
-
-        /* Подразделы внутри "Игры" */
-        .games-hub-list {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 12px;
-            margin-top: 10px;
-        }
-        .game-hub-card {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            width: 100%;
-            padding: 14px 16px;
-            border-radius: 16px;
-            background: rgba(17, 24, 39, 0.88);
-            border: 1.5px solid rgba(255, 255, 255, 0.12);
-            color: #fff;
-            text-align: left;
-            cursor: pointer;
-            transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-        }
-        .game-hub-card:active {
-            transform: scale(0.98);
-            border-color: #22c55e;
-        }
-        .game-hub-card.is-locked {
-            opacity: 0.55;
-            cursor: not-allowed;
-        }
-        .game-hub-left {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        .game-hub-icon {
-            width: 44px;
-            height: 44px;
-            border-radius: 12px;
-            background: rgba(34, 197, 94, 0.16);
-            border: 1px solid rgba(34, 197, 94, 0.35);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 22px;
-            flex-shrink: 0;
-        }
-        .game-hub-icon.muted {
-            background: rgba(255, 255, 255, 0.06);
-            border-color: rgba(255, 255, 255, 0.12);
-        }
-        .game-hub-title {
-            font-size: 15px;
-            font-weight: 800;
-            margin: 0;
-        }
-        .game-hub-desc {
-            font-size: 12px;
-            color: #9ca3af;
-            margin: 3px 0 0 0;
-        }
-        .game-hub-arrow {
-            font-size: 22px;
-            font-weight: 700;
-            color: #22c55e;
-            line-height: 1;
-        }
-        .game-hub-badge {
-            font-size: 11px;
-            font-weight: 700;
-            color: #9ca3af;
-            background: rgba(255, 255, 255, 0.07);
-            padding: 4px 8px;
-            border-radius: 999px;
-            white-space: nowrap;
-        }
-        .subgame-header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
-            margin-bottom: 12px;
-        }
-        .back-to-games-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 7px 12px;
-            border-radius: 10px;
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.14);
-            color: #fff;
-            font-size: 13px;
-            font-weight: 700;
-            cursor: pointer;
-        }
-        .back-to-games-btn:active {
-            transform: scale(0.96);
-        }
-
-        .tickets-top-bar {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 10px;
-            margin-bottom: 12px;
-        }
-        .tickets-top-bar h3 {
-            margin: 0;
-            font-size: 18px;
-            font-weight: 700;
-        }
-        .tickets-wallet-box {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            background: rgba(11, 15, 25, 0.92);
-            border: 1px solid rgba(255, 255, 255, 0.12);
-            border-radius: 12px;
-            padding: 5px 6px 5px 10px;
-        }
-        .tickets-wallet-count {
-            font-size: 13px;
-            font-weight: 800;
-            color: #fde047;
-            white-space: nowrap;
-        }
-        .tickets-plus-btn {
-            width: 26px;
-            height: 26px;
-            border: none;
-            border-radius: 8px;
-            background: linear-gradient(135deg, #22c55e, #16a34a);
-            color: #ffffff;
-            font-size: 17px;
-            font-weight: 800;
-            line-height: 1;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            cursor: pointer;
-            box-shadow: 0 3px 10px rgba(34, 197, 94, 0.45);
-            transition: transform 0.15s ease;
-        }
-        .tickets-plus-btn:active {
-            transform: scale(0.92);
-        }
-        .tickets-grid {
-            display: grid;
-            grid-template-columns: 1fr;
-            gap: 10px;
-            margin: 14px 0;
-        }
-        .ticket-item {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 12px 14px;
-            border-radius: 14px;
-            background: rgba(17, 24, 39, 0.85);
-            border: 1.5px solid rgba(255, 255, 255, 0.12);
-            cursor: pointer;
-            transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
-            text-align: left;
-            color: #fff;
-        }
-        .ticket-item.active {
-            transform: translateY(-1px);
-            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
-        }
-        .ticket-left {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-        }
-        .ticket-swatch {
-            width: 34px;
-            height: 34px;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 16px;
-            font-weight: 800;
-            color: #fff;
-            flex-shrink: 0;
-        }
-        .ticket-title {
-            font-size: 14px;
-            font-weight: 700;
-            margin: 0;
-        }
-        .ticket-sub {
-            font-size: 11px;
-            color: #9ca3af;
-            margin: 2px 0 0 0;
-        }
-        .ticket-price-pill {
-            padding: 6px 10px;
-            border-radius: 999px;
-            background: rgba(255, 255, 255, 0.08);
-            font-size: 13px;
-            font-weight: 800;
-            white-space: nowrap;
-        }
-        .ticket-stage {
-            margin: 14px 0;
-            padding: 20px 14px;
-            border-radius: 16px;
-            background: rgba(17, 24, 39, 0.75);
-            border: 1px dashed rgba(255, 255, 255, 0.18);
-            text-align: center;
-            transition: transform 0.25s ease, border-color 0.25s ease;
-        }
-        .ticket-stage.opening {
-            transform: scale(1.03);
-            border-style: solid;
-        }
-        .ticket-stage-badge {
-            display: inline-block;
-            padding: 4px 10px;
-            border-radius: 999px;
-            font-size: 11px;
-            font-weight: 700;
-            margin-bottom: 8px;
-            background: rgba(255, 255, 255, 0.1);
-        }
-        .ticket-stage-title {
-            font-size: 18px;
-            font-weight: 800;
-            margin: 4px 0;
-        }
-    </style>
+    <link rel="stylesheet" href="style.css?v=20">
 </head>
 <body>
     <div class="bg-glow"></div>
@@ -294,16 +22,16 @@
                     <p class="sub-balance-label">🎟️ ИГРОВОЙ</p>
                     <div>
                         <span id="game-balance-amount" class="sub-balance-val">0</span>
-                        <span class="star-icon">⭐</span>
+                        <span class="star-icon" data-star-icon></span>
                     </div>
-                    <button class="topup-mini-btn" onclick="openTopupPrompt()">+ Пополнить</button>
+                    <button type="button" class="topup-mini-btn" onclick="openTopupPrompt()">+ Пополнить</button>
                 </div>
 
                 <div class="sub-balance-card">
                     <p class="sub-balance-label">🎁 БОНУСНЫЙ</p>
                     <div>
                         <span id="bonus-balance-amount" class="sub-balance-val">0</span>
-                        <span class="star-icon">⭐</span>
+                        <span class="star-icon" data-star-icon></span>
                     </div>
                 </div>
             </div>
@@ -311,9 +39,9 @@
 
         <!-- Переключатель вкладок -->
         <nav class="tabs">
-            <button id="tab-tasks" class="tab-btn active" onclick="switchTab('tasks')">Задания</button>
-            <button id="tab-games" class="tab-btn" onclick="switchTab('games')">Игры</button>
-            <button id="tab-profile" class="tab-btn" onclick="switchTab('profile')">Профиль</button>
+            <button type="button" id="tab-tasks" class="tab-btn active" onclick="switchTab('tasks')">Задания</button>
+            <button type="button" id="tab-games" class="tab-btn" onclick="switchTab('games')">Игры</button>
+            <button type="button" id="tab-profile" class="tab-btn" onclick="switchTab('profile')">Профиль</button>
         </nav>
 
         <!-- Вкладка: Задания -->
@@ -327,7 +55,7 @@
                         <h3>Подписка на канал</h3>
                         <p>Награда на бонусный баланс</p>
                     </div>
-                    <button class="reward-btn" onclick="completeTask(15, this)">+15 ⭐</button>
+                    <button type="button" class="reward-btn" onclick="completeTask(15, this)">+15 <span data-star-icon></span></button>
                 </div>
 
                 <div class="task-card">
@@ -336,7 +64,7 @@
                         <h3>Партнерский просмотр</h3>
                         <p>Посмотри спонсорский пост</p>
                     </div>
-                    <button class="reward-btn" onclick="completeTask(5, this)">+5 ⭐</button>
+                    <button type="button" class="reward-btn" onclick="completeTask(5, this)">+5 <span data-star-icon></span></button>
                 </div>
 
                 <div class="task-card">
@@ -345,14 +73,7 @@
                         <h3>Ежедневный чек-ин</h3>
                         <p>Заходи каждый день за бонусом</p>
                     </div>
-                    <button class="reward-btn" onclick="completeTask(10, this)">+10 ⭐</button>
-                </div>
-            </div>
-
-            <div class="promo-banner">
-                <div class="promo-text">
-                    <h4>Больше заданий скоро!</h4>
-                    <p>Копи бонусы и переводи их в игровой баланс для открытия билетов.</p>
+                    <button type="button" class="reward-btn" onclick="completeTask(10, this)">+10 <span data-star-icon></span></button>
                 </div>
             </div>
         </main>
@@ -369,7 +90,7 @@
                             <div class="game-hub-icon">🎫</div>
                             <div>
                                 <p class="game-hub-title">Билеты</p>
-                                <p class="game-hub-desc">5 цветных тиров • Призы до 450 ⭐</p>
+                                <p class="game-hub-desc">5 цветных тиров • Призы до 450 <span data-star-icon></span></p>
                             </div>
                         </div>
                         <span class="game-hub-arrow">›</span>
@@ -399,8 +120,8 @@
                     <div class="tickets-top-bar">
                         <h3>Выбери билет</h3>
                         <div class="tickets-wallet-box">
-                            <span id="tickets-balance-count" class="tickets-wallet-count">🎫 0</span>
-                            <button type="button" class="tickets-plus-btn" title="Купить билет" onclick="openTicketShopModal()">+</button>
+                            <span id="tickets-balance-count" class="tickets-wallet-count">0 <span data-star-icon></span></span>
+                            <button type="button" class="tickets-plus-btn" title="Пополнить баланс" onclick="openTicketShopModal()">+</button>
                         </div>
                     </div>
 
@@ -410,10 +131,10 @@
                                 <div class="ticket-swatch" style="background: #8e929b;">🎫</div>
                                 <div>
                                     <p class="ticket-title">Серый билет</p>
-                                    <p class="ticket-sub">Стартовый тир • Призы до 15 ⭐</p>
+                                    <p class="ticket-sub">Стартовый тир • Призы до 15 <span data-star-icon></span></p>
                                 </div>
                             </div>
-                            <span class="ticket-price-pill">5 ⭐</span>
+                            <span class="ticket-price-pill">5 <span data-star-icon></span></span>
                         </button>
 
                         <button type="button" class="ticket-item" data-ticket="blue" onclick="selectTicket('blue', this)">
@@ -421,10 +142,10 @@
                                 <div class="ticket-swatch" style="background: #3b82f6;">🎫</div>
                                 <div>
                                     <p class="ticket-title">Синий билет</p>
-                                    <p class="ticket-sub">Базовый тир • Призы до 45 ⭐</p>
+                                    <p class="ticket-sub">Базовый тир • Призы до 45 <span data-star-icon></span></p>
                                 </div>
                             </div>
-                            <span class="ticket-price-pill">15 ⭐</span>
+                            <span class="ticket-price-pill">15 <span data-star-icon></span></span>
                         </button>
 
                         <button type="button" class="ticket-item" data-ticket="burgundy" onclick="selectTicket('burgundy', this)">
@@ -432,10 +153,10 @@
                                 <div class="ticket-swatch" style="background: #881337;">🎫</div>
                                 <div>
                                     <p class="ticket-title">Бордовый билет</p>
-                                    <p class="ticket-sub">Средний тир • Призы до 105 ⭐</p>
+                                    <p class="ticket-sub">Средний тир • Призы до 105 <span data-star-icon></span></p>
                                 </div>
                             </div>
-                            <span class="ticket-price-pill">35 ⭐</span>
+                            <span class="ticket-price-pill">35 <span data-star-icon></span></span>
                         </button>
 
                         <button type="button" class="ticket-item" data-ticket="purple" onclick="selectTicket('purple', this)">
@@ -443,10 +164,10 @@
                                 <div class="ticket-swatch" style="background: #9333ea;">🎫</div>
                                 <div>
                                     <p class="ticket-title">Фиолетовый билет</p>
-                                    <p class="ticket-sub">Высокий тир • Призы до 225 ⭐</p>
+                                    <p class="ticket-sub">Высокий тир • Призы до 225 <span data-star-icon></span></p>
                                 </div>
                             </div>
-                            <span class="ticket-price-pill">75 ⭐</span>
+                            <span class="ticket-price-pill">75 <span data-star-icon></span></span>
                         </button>
 
                         <button type="button" class="ticket-item" data-ticket="gold" onclick="selectTicket('gold', this)">
@@ -454,20 +175,20 @@
                                 <div class="ticket-swatch" style="background: #eab308; color: #111827;">👑</div>
                                 <div>
                                     <p class="ticket-title">Золотой билет</p>
-                                    <p class="ticket-sub">Максимум • Призы до 450 ⭐</p>
+                                    <p class="ticket-sub">Максимум • Призы до 450 <span data-star-icon></span></p>
                                 </div>
                             </div>
-                            <span class="ticket-price-pill">150 ⭐</span>
+                            <span class="ticket-price-pill">150 <span data-star-icon></span></span>
                         </button>
                     </div>
 
                     <div id="ticket-stage" class="ticket-stage">
-                        <span id="stage-badge" class="ticket-stage-badge">СЕРЫЙ БИЛЕТ • 5 ⭐</span>
+                        <span id="stage-badge" class="ticket-stage-badge">СЕРЫЙ БИЛЕТ • 5 <span data-star-icon></span></span>
                         <div id="stage-title" class="ticket-stage-title">Готов к открытию</div>
                     </div>
 
-                    <button id="open-ticket-btn" class="spin-action-btn" onclick="openSelectedTicket()">Открыть Серый билет (5 ⭐)</button>
-                    <div id="game-status" class="game-status">Выбери цветной билет и нажми открыть</div>
+                    <button type="button" id="open-ticket-btn" class="spin-action-btn" onclick="openSelectedTicket()">Открыть Серый билет (5 <span data-star-icon></span>)</button>
+                    <div id="game-status" class="game-status"></div>
                 </div>
             </div>
         </main>
@@ -484,54 +205,22 @@
             </div>
 
             <div class="profile-actions">
-                <button class="action-btn withdraw-btn" onclick="openTopupPrompt()">
-                    <span>⭐️ Пополнить игровой баланс</span>
+                <button type="button" class="action-btn withdraw-btn" onclick="openTopupPrompt()">
+                    <span><span data-star-icon></span> Пополнить игровой баланс</span>
                 </button>
-                <button class="action-btn withdraw-btn" onclick="openBonusTransferPrompt()">
+                <button type="button" class="action-btn withdraw-btn" onclick="openBonusTransferPrompt()">
                     <span>🔄 Перевести бонусы в игровой баланс</span>
                 </button>
-                <button class="action-btn withdraw-btn" onclick="handleWithdraw('game')">
+                <button type="button" class="action-btn withdraw-btn" onclick="handleWithdraw('game')">
                     <span>🎰 Вывести с Игрового баланса</span>
                 </button>
-                <button class="action-btn promote-btn" onclick="handleWithdraw('bonus')">
+                <button type="button" class="action-btn withdraw-btn" onclick="handleWithdraw('bonus')">
                     <span>🎁 Вывести с Бонусного баланса</span>
                 </button>
             </div>
         </main>
     </div>
 
-    <script>
-        function openSubGame(gameKey) {
-            const hub = document.getElementById('games-hub');
-            if (hub) hub.style.display = 'none';
-
-            document.querySelectorAll('[id^="subgame-"]').forEach(el => {
-                el.style.display = 'none';
-            });
-
-            const target = document.getElementById(`subgame-${gameKey}`);
-            if (target) target.style.display = 'block';
-        }
-
-        function backToGamesHub() {
-            document.querySelectorAll('[id^="subgame-"]').forEach(el => {
-                el.style.display = 'none';
-            });
-
-            const hub = document.getElementById('games-hub');
-            if (hub) hub.style.display = 'block';
-        }
-
-        // Если в script.js уже есть свой switchTab, можно повесить сброс хаба при клике на вкладку "Игры"
-        document.addEventListener('DOMContentLoaded', () => {
-            const gamesTabBtn = document.getElementById('tab-games');
-            if (gamesTabBtn) {
-                gamesTabBtn.addEventListener('click', () => {
-                    backToGamesHub();
-                });
-            }
-        });
-    </script>
-    <script src="script.js?v=19"></script>
+    <script src="script.js?v=20"></script>
 </body>
 </html>
