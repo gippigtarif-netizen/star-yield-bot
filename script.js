@@ -7,44 +7,53 @@ const userId = user.id || 123456789;
 const username = user.username || "";
 const firstName = user.first_name || "Игрок";
 
-const TG_STAR_SVG = `
-<svg class="tg-star-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="width:16px;height:16px;min-width:16px;display:inline-block;vertical-align:-2px;">
-  <path fill="#fbbf24" d="M12 2.2l2.92 6.08 6.68.93-4.86 4.66 1.18 6.64L12 17.32l-5.92 3.19 1.18-6.64L2.4 9.21l6.68-.93L12 2.2z"/>
-</svg>
-`.trim();
+const STAR_EMOJI_REGEX = /⭐\uFE0F?|⭐️/g;
+
+const TG_STAR_SVG = `<svg class="tg-star-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="width:16px;height:16px;min-width:16px;display:inline-block;vertical-align:-2px;filter:drop-shadow(0 1px 2px rgba(245,158,11,0.45));"><path fill="#f59e0b" d="M12.82 2.45c-.34-.67-1.3-.67-1.64 0L8.27 8.35l-6.51.95c-.74.11-1.04 1.02-.5 1.54l4.71 4.59-1.11 6.48c-.13.74.65 1.3 1.31.95l5.82-3.06 5.82 3.06c.66.35 1.44-.21 1.31-.95l-1.11-6.48 4.71-4.59c.54-.52.24-1.43-.5-1.54l-6.51-.95-2.91-5.9zm2.38 8.35l-6.55 4.12 2.35 1.25 6.4-4.95-2.2-.42z"/></svg>`;
 
 function formatStarsText(text) {
-    return String(text ?? "").replaceAll("⭐", TG_STAR_SVG).replaceAll("⭐️", TG_STAR_SVG);
+    return String(text ?? "").replace(STAR_EMOJI_REGEX, TG_STAR_SVG);
 }
 
 function hydrateStarIcons(root = document) {
+    if (!root) return;
     root.querySelectorAll("[data-star-icon]").forEach(el => {
-        el.innerHTML = TG_STAR_SVG;
+        if (el.innerHTML !== TG_STAR_SVG) {
+            el.innerHTML = TG_STAR_SVG;
+        }
     });
 }
 
-function replaceEmojiStarsInDom(root = document.body) {
-    if (!root) return;
+let isReplacingStars = false;
 
-    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-    const textNodes = [];
-    let current;
-    while ((current = walker.nextNode())) {
-        if (current.nodeValue && (current.nodeValue.includes("⭐") || current.nodeValue.includes("⭐️"))) {
-            const parentTag = current.parentElement?.tagName;
-            if (parentTag !== "SCRIPT" && parentTag !== "STYLE") {
-                textNodes.push(current);
+function replaceEmojiStarsInDom(root = document.body) {
+    if (!root || isReplacingStars) return;
+    isReplacingStars = true;
+
+    try {
+        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+        const textNodes = [];
+        let current;
+        while ((current = walker.nextNode())) {
+            if (current.nodeValue && STAR_EMOJI_REGEX.test(current.nodeValue)) {
+                STAR_EMOJI_REGEX.lastIndex = 0;
+                const parentTag = current.parentElement?.tagName;
+                if (parentTag !== "SCRIPT" && parentTag !== "STYLE") {
+                    textNodes.push(current);
+                }
             }
         }
-    }
 
-    textNodes.forEach(node => {
-        const parent = node.parentElement;
-        if (!parent) return;
-        const span = document.createElement("span");
-        span.innerHTML = formatStarsText(node.nodeValue);
-        parent.replaceChild(span, node);
-    });
+        textNodes.forEach(node => {
+            const parent = node.parentElement;
+            if (!parent) return;
+            const span = document.createElement("span");
+            span.innerHTML = formatStarsText(node.nodeValue);
+            parent.replaceChild(span, node);
+        });
+    } finally {
+        isReplacingStars = false;
+    }
 }
 
 const TICKET_UI = {
@@ -150,6 +159,20 @@ function applyUiFixes() {
     styleLastProfileButtonGreen();
 }
 
+function startStarObserver() {
+    if (!document.body || typeof MutationObserver === "undefined") return;
+    const observer = new MutationObserver(() => {
+        if (isReplacingStars) return;
+        hydrateStarIcons(document);
+        replaceEmojiStarsInDom(document.body);
+    });
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+        characterData: true
+    });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
     const nameEl = document.getElementById("user-name");
     const avatarEl = document.getElementById("user-avatar");
@@ -164,6 +187,7 @@ document.addEventListener("DOMContentLoaded", () => {
     backToGamesHub();
     updateTicketPreview(selectedTicketId);
     applyUiFixes();
+    startStarObserver();
     loadBalance();
 });
 
@@ -485,7 +509,6 @@ async function openSelectedTicket() {
         return;
     }
 
-    // 1 этап: сначала списание стоимости билета
     const balanceAfterSpend = resultData.won
         ? Math.max(0, Number(resultData.game_balance) - Number(resultData.prize))
         : Number(resultData.game_balance);
@@ -503,7 +526,6 @@ async function openSelectedTicket() {
         tg.HapticFeedback.impactOccurred("medium");
     }
 
-    // 2 этап: затем начисление награды / показ результата
     setTimeout(() => {
         isOpeningTicket = false;
         if (openBtn) openBtn.disabled = false;
