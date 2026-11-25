@@ -7,7 +7,7 @@ const userId = user.id || 123456789;
 const username = user.username || "";
 const firstName = user.first_name || "Игрок";
 
-const STAR_EMOJI_REGEX = /⭐\uFE0F?|⭐️/g;
+const STAR_EMOJI_REGEX = /\u2b50\ufe0f?/g;
 
 const TG_STAR_SVG = `<svg class="tg-star-icon" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="width:16px;height:16px;min-width:16px;display:inline-block;vertical-align:-2px;filter:drop-shadow(0 1px 2px rgba(245,158,11,0.45));"><path fill="#f59e0b" d="M12.82 2.45c-.34-.67-1.3-.67-1.64 0L8.27 8.35l-6.51.95c-.74.11-1.04 1.02-.5 1.54l4.71 4.59-1.11 6.48c-.13.74.65 1.3 1.31.95l5.82-3.06 5.82 3.06c.66.35 1.44-.21 1.31-.95l-1.11-6.48 4.71-4.59c.54-.52.24-1.43-.5-1.54l-6.51-.95-2.91-5.9zm2.38 8.35l-6.55 4.12 2.35 1.25 6.4-4.95-2.2-.42z"/></svg>`;
 
@@ -18,42 +18,33 @@ function formatStarsText(text) {
 function hydrateStarIcons(root = document) {
     if (!root) return;
     root.querySelectorAll("[data-star-icon]").forEach(el => {
-        if (el.innerHTML !== TG_STAR_SVG) {
-            el.innerHTML = TG_STAR_SVG;
-        }
+        el.innerHTML = TG_STAR_SVG;
     });
 }
 
-let isReplacingStars = false;
-
 function replaceEmojiStarsInDom(root = document.body) {
-    if (!root || isReplacingStars) return;
-    isReplacingStars = true;
+    if (!root) return;
 
-    try {
-        const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
-        const textNodes = [];
-        let current;
-        while ((current = walker.nextNode())) {
-            if (current.nodeValue && STAR_EMOJI_REGEX.test(current.nodeValue)) {
-                STAR_EMOJI_REGEX.lastIndex = 0;
-                const parentTag = current.parentElement?.tagName;
-                if (parentTag !== "SCRIPT" && parentTag !== "STYLE") {
-                    textNodes.push(current);
-                }
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+    const textNodes = [];
+    let current;
+    while ((current = walker.nextNode())) {
+        if (current.nodeValue && STAR_EMOJI_REGEX.test(current.nodeValue)) {
+            STAR_EMOJI_REGEX.lastIndex = 0;
+            const parentTag = current.parentElement?.tagName;
+            if (parentTag !== "SCRIPT" && parentTag !== "STYLE" && parentTag !== "BUTTON") {
+                textNodes.push(current);
             }
         }
-
-        textNodes.forEach(node => {
-            const parent = node.parentElement;
-            if (!parent) return;
-            const span = document.createElement("span");
-            span.innerHTML = formatStarsText(node.nodeValue);
-            parent.replaceChild(span, node);
-        });
-    } finally {
-        isReplacingStars = false;
     }
+
+    textNodes.forEach(node => {
+        const parent = node.parentElement;
+        if (!parent) return;
+        const span = document.createElement("span");
+        span.innerHTML = formatStarsText(node.nodeValue);
+        parent.replaceChild(span, node);
+    });
 }
 
 const TICKET_UI = {
@@ -159,20 +150,6 @@ function applyUiFixes() {
     styleLastProfileButtonGreen();
 }
 
-function startStarObserver() {
-    if (!document.body || typeof MutationObserver === "undefined") return;
-    const observer = new MutationObserver(() => {
-        if (isReplacingStars) return;
-        hydrateStarIcons(document);
-        replaceEmojiStarsInDom(document.body);
-    });
-    observer.observe(document.body, {
-        childList: true,
-        subtree: true,
-        characterData: true
-    });
-}
-
 document.addEventListener("DOMContentLoaded", () => {
     const nameEl = document.getElementById("user-name");
     const avatarEl = document.getElementById("user-avatar");
@@ -187,7 +164,6 @@ document.addEventListener("DOMContentLoaded", () => {
     backToGamesHub();
     updateTicketPreview(selectedTicketId);
     applyUiFixes();
-    startStarObserver();
     loadBalance();
 });
 
@@ -370,21 +346,21 @@ async function openBonusTransferPrompt() {
 
     const bonusBal = parseInt(document.getElementById("bonus-balance-amount").textContent) || 0;
     if (bonusBal <= 0) {
-        if (tg.showAlert) tg.showAlert("На Бонусном балансе пока 0 ⭐.");
-        else alert("На Бонусном балансе пока 0 ⭐.");
+        if (tg.showAlert) tg.showAlert("На Бонусном балансе пока 0 звёзд.");
+        else alert("На Бонусном балансе пока 0 звёзд.");
         return;
     }
 
     const raw = prompt(
-        `Перевод с Бонусного баланса на Игровой (обратный перевод невозможен).\nДоступно бонусов: ${bonusBal} ⭐`,
+        `Перевод с Бонусного баланса на Игровой (обратный перевод невозможен).\nДоступно бонусов: ${bonusBal}`,
         String(bonusBal)
     );
     if (!raw) return;
 
     const amount = parseInt(raw, 10);
     if (isNaN(amount) || amount < 1 || amount > bonusBal) {
-        if (tg.showAlert) tg.showAlert(`Введите число от 1 до ${bonusBal} ⭐`);
-        else alert(`Введите число от 1 до ${bonusBal} ⭐`);
+        if (tg.showAlert) tg.showAlert(`Введите число от 1 до ${bonusBal}`);
+        else alert(`Введите число от 1 до ${bonusBal}`);
         return;
     }
 
@@ -405,7 +381,7 @@ async function openBonusTransferPrompt() {
             renderBalances(data);
             applyUiFixes();
             if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("success");
-            const msg = `Переведено ${data.spent_bonus} бонусных ⭐ → +${data.received_game} игровых ⭐.`;
+            const msg = `Переведено ${data.spent_bonus} бонусных -> +${data.received_game} игровых.`;
             if (tg.showAlert) tg.showAlert(msg);
             else alert(msg);
         } else {
@@ -423,11 +399,11 @@ async function openBonusTransferPrompt() {
 }
 
 async function openTopupPrompt() {
-    const raw = prompt("Сколько звёзд Telegram (⭐) зачислить на Игровой баланс? (от 1 до 10000)", "15");
+    const raw = prompt("Сколько звёзд Telegram зачислить на Игровой баланс? (от 1 до 10000)", "15");
     if (!raw) return;
     const amount = parseInt(raw, 10);
     if (isNaN(amount) || amount < 1 || amount > 10000) {
-        if (tg.showAlert) tg.showAlert("Введите корректное число от 1 до 10000 ⭐");
+        if (tg.showAlert) tg.showAlert("Введите корректное число от 1 до 10000");
         return;
     }
 
@@ -460,7 +436,7 @@ async function openSelectedTicket() {
     const gameBalance = parseInt(document.getElementById("game-balance-amount").textContent) || 0;
 
     if (gameBalance < ticketInfo.price) {
-        const msg = `Недостаточно звёзд для билета «${ticketInfo.name}» (${ticketInfo.price} ⭐).`;
+        const msg = `Недостаточно звёзд для билета «${ticketInfo.name}» (${ticketInfo.price}).`;
         if (tg.showAlert) tg.showAlert(msg);
         else alert(msg);
         return;
@@ -572,8 +548,8 @@ async function submitGiftWithdraw(giftId, amount) {
             applyUiFixes();
             closeGiftModal();
             if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("success");
-            if (tg.showAlert) tg.showAlert(data.message || `Подарок за ${amount} ⭐ отправлен!`);
-            else alert(data.message || `Подарок за ${amount} ⭐ отправлен!`);
+            if (tg.showAlert) tg.showAlert(data.message || `Подарок за ${amount} отправлен!`);
+            else alert(data.message || `Подарок за ${amount} отправлен!`);
         } else {
             if (tg.HapticFeedback) tg.HapticFeedback.notificationOccurred("error");
             if (tg.showAlert) tg.showAlert(data.error || "Ошибка вывода подарка");
@@ -680,18 +656,18 @@ function handleWithdraw(type) {
 
     if (type === "game") {
         if (gameBal < 15) {
-            if (tg.showAlert) tg.showAlert(`Минимальная стоимость подарка для вывода: 15 ⭐. У вас сейчас ${gameBal} ⭐.`);
-            else alert(`Минимальная стоимость подарка для вывода: 15 ⭐.`);
+            if (tg.showAlert) tg.showAlert(`Минимальная стоимость подарка для вывода: 15. У вас сейчас ${gameBal}.`);
+            else alert(`Минимальная стоимость подарка для вывода: 15.`);
             return;
         }
         openGiftWithdrawModal(gameBal);
     } else {
         if (bonusBal < 500) {
-            if (tg.showAlert) tg.showAlert("Минимальный вывод с Бонусного баланса: 500 ⭐.");
-            else alert("Минимальный вывод с Бонусного баланса: 500 ⭐.");
+            if (tg.showAlert) tg.showAlert("Минимальный вывод с Бонусного баланса: 500.");
+            else alert("Минимальный вывод с Бонусного баланса: 500.");
         } else {
-            if (tg.showAlert) tg.showAlert(`Заявка на вывод ${bonusBal} ⭐ с Бонусного баланса принята!`);
-            else alert(`Заявка на вывод ${bonusBal} ⭐ с Бонусного баланса принята!`);
+            if (tg.showAlert) tg.showAlert(`Заявка на вывод ${bonusBal} с Бонусного баланса принята!`);
+            else alert(`Заявка на вывод ${bonusBal} с Бонусного баланса принята!`);
         }
     }
 }
